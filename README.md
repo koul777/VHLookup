@@ -99,28 +99,23 @@ GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을
 samples\public_admin
 ```
 
-주요 샘플:
+### 샘플별 체험 방법
 
-- `school_submissions/`: 학교/부서 제출자료 수합
-- `submission_errors/`: 필수값, 숫자, 날짜, 중복 오류 검증
-- `hr_employee_master.csv`: 직원 기본명단
-- `hr_training_completion.csv`: 교육 이수명단
-- `allowance_budget/`: 수당/예산 기준표 대조
-- `submission_reconciliation/`: 제출 대상 누락 확인
-- `messy_headers/`: 제목/안내문이 붙은 부서별 현황 수합
-- `monthly_budget_wide.csv`: 월별 가로표 샘플
-- `pivot_summary/budget_execution.csv`: 피벗 요약표 샘플
-- `before_after_validation/`: 전/후 파일 검증 샘플
+| 체험할 업무 | 누를 기능 | 선택할 샘플 파일 | 화면에서 고를 값 | 결과에서 볼 시트 |
+|---|---:|---|---|---|
+| 제출자료 파일 구조 점검 | 1. 파일 문제 찾기(선택) | `samples\public_admin\submission_errors\bad_school_a.csv`, `samples\public_admin\submission_errors\bad_school_b.csv` | 파일 2개 선택 | `먼저확인`, `파일점검`, `열비교`, `확인필요`, `개인정보점검` |
+| 지저분한 파일 정리 | 2. 엑셀 파일 정리하기 | `samples\public_admin\messy_headers\department_status_a.csv` | 파일 1개 선택 | `먼저확인`, `결과`, `처리요약`, `자동추천근거` |
+| 부서별 시트 나누기 | 3. 분류별 시트 나누기 | `samples\public_admin\pivot_summary\budget_execution.csv` | 분류 기준열: `부서` | `먼저확인`, `전체`, `총무과`, `예산과`, `복지과`, `민원과` |
+| 제출자료 행 합치기 | 4. 엑셀/CSV 파일 여러 개 합치기 | `samples\public_admin\school_submissions\gangbuk_school.csv`, `samples\public_admin\school_submissions\gangnam_school.csv` | 합치기 방향: `행 합치기` | `먼저확인`, `결과`, `자동추천근거`, `개인정보점검` |
+| 제목/안내문 있는 파일 행 합치기 | 4. 엑셀/CSV 파일 여러 개 합치기 | `samples\public_admin\messy_headers\department_status_a.csv`, `samples\public_admin\messy_headers\department_status_b.csv` | 합치기 방향: `행 합치기` | `결과`, `자동추천근거` |
+| 직원 명단 열 합치기 | 4. 엑셀/CSV 파일 여러 개 합치기 | `samples\public_admin\hr_training_completion.csv`, `samples\public_admin\hr_employee_master.csv` | 합치기 방향: `열 합치기`, 자동 매칭 확인 | `먼저확인`, `결과`, `자동추천근거`, `확인필요` |
+| 수당/예산 기준표 열 합치기 | 4. 엑셀/CSV 파일 여러 개 합치기 | `samples\public_admin\allowance_budget\payment_requests.csv`, `samples\public_admin\allowance_budget\rate_reference.csv` | 합치기 방향: `열 합치기`, 자동 매칭 확인 | `결과`, `자동추천근거`, `확인필요` |
+| 전/후 파일 변경 검증 | 5. 전/후 파일 검증 | 수정 전: `samples\public_admin\before_after_validation\payment_before.csv`, 수정 후: `samples\public_admin\before_after_validation\payment_after.csv` | 비교 기준열 자동 추천 확인, 필요 시 `컬럼 매칭 수정` | `후파일_메모`, `차이목록`, `행비교`, `컬럼비교`, `차이행만` |
+| 부서/월별 예산 피벗 | 6. 피벗 요약표 만들기 | `samples\public_admin\pivot_summary\budget_execution.csv` | 행 기준: `부서`, 열 기준: `월`, 값 열: `금액`, 집계 방식: `합계` | `피벗요약`, `상위목록`, `기준설명`, `원본` |
+| 상태별 처리 건수 피벗 | 6. 피벗 요약표 만들기 | `samples\public_admin\pivot_summary\budget_execution.csv` | 행 기준: `상태`, 열 기준: `(선택 안 함)`, 값 열: `(행 개수)`, 집계 방식: `건수` | `피벗요약`, `상위목록`, `기준설명` |
+| 월별 가로표 정리 확인 | 2. 엑셀 파일 정리하기 | `samples\public_admin\monthly_budget_wide.csv` | 파일 1개 선택 | `결과`, `처리요약` |
 
-피벗 샘플 추천 선택:
-
-```text
-파일: samples\public_admin\pivot_summary\budget_execution.csv
-행 기준: 부서
-열 기준: 월
-값 열: 금액
-집계 방식: 합계
-```
+월별 가로표를 세로형 자료로 바꾸는 기능은 현재 exe 첫 화면의 1~6번 버튼에는 넣지 않았고, CLI의 `horizontal` 명령으로만 제공합니다.
 
 샘플 종류와 확인 포인트는 [docs/sample_catalog.md](docs/sample_catalog.md)에 더 자세히 정리되어 있습니다.
 
