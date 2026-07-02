@@ -1,0 +1,243 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pandas as pd
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
+
+from vhlookup_core.models import JobResult
+from vhlookup_core.privacy import PrivacyScanner
+
+
+SHEET_GUIDE = "먼저확인"
+SHEET_RESULT = "결과"
+SHEET_ISSUES = "확인필요"
+SHEET_ERROR_ROWS = "오류행만"
+SHEET_SUMMARY = "처리요약"
+SHEET_MAPPING = "매핑표"
+SHEET_AUTO_EVIDENCE = "자동추천근거"
+SHEET_PRIVACY = "개인정보점검"
+
+SEVERITY_LABELS = {
+    "info": "안내",
+    "warning": "확인",
+    "error": "오류",
+}
+
+ISSUE_LABELS = {
+    "auto_detection_warning": "자동탐지 확인",
+    "auto_inference_warning": "자동추천 확인",
+    "file_processing_failed": "파일 처리 실패",
+    "format_mismatch": "형식 불일치",
+    "match_failed": "기준표에 없음",
+    "missing_required_key": "필수 키 누락",
+    "reference_duplicate_key": "기준표 중복",
+    "reference_duplicate_key_blocked": "중복 키 병합 중단",
+    "target_duplicate_key": "대상표 중복",
+    "reference_missing_required_key": "기준표 키 누락",
+    "target_missing_required_key": "대상표 키 누락",
+    "missing_in_target": "대상표에 없음",
+    "missing_in_reference": "기준표에 없음",
+    "required_column_missing": "필수 컬럼 누락",
+    "required_value_missing": "필수값 누락",
+    "numeric_value_invalid": "숫자 오류",
+    "date_value_invalid": "날짜 오류",
+    "duplicate_business_key": "중복 제출 의심",
+}
+
+ISSUE_ACTIONS = {
+    "auto_detection_warning": "헤더 행과 컬럼 매칭이 맞는지 미리보기에서 확인하세요.",
+    "auto_inference_warning": "자동 추천된 키 컬럼과 가져올 컬럼이 맞는지 미리보기에서 확인하세요.",
+    "file_processing_failed": "암호, 손상, 지원하지 않는 파일 형식인지 확인한 뒤 다시 처리하세요.",
+    "format_mismatch": "사번, 날짜, 금액처럼 앞자리 0이나 표시 형식이 다른 컬럼을 같은 형식으로 맞추세요.",
+    "match_failed": "기준표에 해당 대상이 실제로 있는지 확인하세요.",
+    "missing_required_key": "키 컬럼의 빈 값을 채운 뒤 다시 실행하세요.",
+    "reference_duplicate_key": "기준표에서 같은 키가 여러 건인 행을 먼저 정리하세요.",
+    "reference_duplicate_key_blocked": "중복 키는 잘못 붙을 수 있어 자동 병합하지 않았습니다.",
+    "target_duplicate_key": "대상표의 중복 행이 정상인지 확인하세요.",
+    "reference_missing_required_key": "기준표 키 컬럼의 빈 값을 채우세요.",
+    "target_missing_required_key": "대상표 키 컬럼의 빈 값을 채우세요.",
+    "missing_in_target": "제출 누락, 교육 미이수, 지급대상 제외 여부를 확인하세요.",
+    "missing_in_reference": "기준명단 누락 또는 잘못 제출된 대상인지 확인하세요.",
+    "required_column_missing": "제출 양식에 필수 컬럼이 있는지 확인하세요.",
+    "required_value_missing": "해당 행의 빈 필수값을 채운 뒤 다시 수합하세요.",
+    "numeric_value_invalid": "금액/수량에는 숫자만 남기고 단위나 설명은 비고로 옮기세요.",
+    "date_value_invalid": "날짜를 YYYY-MM-DD 또는 기관에서 정한 날짜 형식으로 맞추세요.",
+    "duplicate_business_key": "같은 기관/사업/항목이 중복 제출된 것인지 확인하세요.",
+}
+
+SUMMARY_LABELS = {
+    "workflow": "업무 템플릿",
+    "file_count": "처리 파일 수",
+    "successful_file_count": "성공 파일 수",
+    "row_count": "결과 행 수",
+    "issue_count": "확인 필요 건수",
+    "validation_issue_count": "값 검증 오류 건수",
+    "mapped_column_count": "자동 매칭 컬럼 수",
+    "target_rows": "대상표 행 수",
+    "reference_rows": "기준표 행 수",
+    "matched_rows": "매칭 성공 행 수",
+    "auto_key_columns": "자동 선택 기준표 키",
+    "auto_target_key_columns": "자동 선택 대상표 키",
+    "auto_value_columns": "자동 선택 가져올 컬럼",
+    "missing_in_target_rows": "대상표에 없는 건수",
+    "missing_in_reference_rows": "기준표에 없는 건수",
+}
+
+
+class ReportWriter:
+    def write_xlsx(
+        self,
+        result: JobResult,
+        path: str | Path,
+        include_sensitive_details: bool = False,
+    ) -> Path:
+        output_path = Path(path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
+            self._guide_frame(result).to_excel(writer, sheet_name=SHEET_GUIDE, index=False)
+            result.result_frame.to_excel(writer, sheet_name=SHEET_RESULT, index=False)
+            self._issue_frame(result, include_sensitive_details).to_excel(writer, sheet_name=SHEET_ISSUES, index=False)
+            error_rows = self._error_rows_frame(result)
+            if not error_rows.empty:
+                error_rows.to_excel(writer, sheet_name=SHEET_ERROR_ROWS, index=False)
+            self._summary_frame(result).to_excel(writer, sheet_name=SHEET_SUMMARY, index=False)
+            if result.mapping is not None:
+                mapping_rows = [
+                    {
+                        "원본 컬럼": source,
+                        "표준 컬럼": target,
+                        "신뢰도": result.mapping.confidence_by_target.get(target),
+                    }
+                    for source, target in result.mapping.source_to_target.items()
+                ]
+                pd.DataFrame(mapping_rows).to_excel(writer, sheet_name=SHEET_MAPPING, index=False)
+            if result.mapping_records:
+                pd.DataFrame(result.mapping_records).to_excel(writer, sheet_name=SHEET_AUTO_EVIDENCE, index=False)
+            privacy_records = result.privacy_records or PrivacyScanner().scan_frame(result.result_frame)
+            if privacy_records:
+                pd.DataFrame(privacy_records).to_excel(writer, sheet_name=SHEET_PRIVACY, index=False)
+            self._style_workbook(writer.book)
+        return output_path
+
+    def _guide_frame(self, result: JobResult) -> pd.DataFrame:
+        issue_frame = self._issue_frame(result, include_sensitive_details=False)
+        if issue_frame.empty:
+            issue_count_rows = [{"확인 유형": "확인 필요 항목 없음", "건수": 0, "우선 조치": "결과 시트를 검토한 뒤 저장하거나 공유하세요."}]
+        else:
+            issue_count_rows = []
+            counts = issue_frame.groupby("확인 유형").size().sort_values(ascending=False)
+            for issue_type, count in counts.items():
+                matching = issue_frame[issue_frame["확인 유형"] == issue_type]
+                issue_count_rows.append(
+                    {
+                        "확인 유형": issue_type,
+                        "건수": int(count),
+                        "우선 조치": matching.iloc[0]["우선 조치"],
+                    }
+                )
+        guide_rows = [
+            {"확인 유형": "처리 결과", "건수": result.summary.get("row_count", len(result.result_frame)), "우선 조치": "결과 시트에서 통합/대조 결과를 확인하세요."},
+            {"확인 유형": "확인 필요", "건수": len(result.issues), "우선 조치": "확인필요 시트에서 오류와 경고를 먼저 처리하세요."},
+        ]
+        return pd.DataFrame(guide_rows + issue_count_rows)
+
+    def _issue_frame(self, result: JobResult, include_sensitive_details: bool) -> pd.DataFrame:
+        rows = []
+        for issue in result.issues:
+            row = {
+                "심각도": SEVERITY_LABELS.get(issue.severity, issue.severity),
+                "확인 유형": ISSUE_LABELS.get(issue.issue_type, issue.issue_type),
+                "안내 문구": issue.message,
+                "파일명": issue.file_name,
+                "시트명": issue.sheet_name,
+                "원본 행 번호": issue.row_number,
+                "컬럼명": issue.column_name,
+                "우선 조치": ISSUE_ACTIONS.get(issue.issue_type, "원본 자료와 매핑 설정을 확인하세요."),
+            }
+            if include_sensitive_details:
+                row["상세"] = json.dumps(issue.details, ensure_ascii=False, sort_keys=True)
+            rows.append(row)
+        columns = ["심각도", "확인 유형", "안내 문구", "파일명", "시트명", "원본 행 번호", "컬럼명", "우선 조치"]
+        if include_sensitive_details:
+            columns.append("상세")
+        return pd.DataFrame(rows, columns=columns)
+
+    def _error_rows_frame(self, result: JobResult) -> pd.DataFrame:
+        if result.result_frame.empty or not result.issues:
+            return pd.DataFrame()
+
+        rows = []
+        seen = set()
+        for issue in result.issues:
+            matching_indices = self._matching_result_indices(result.result_frame, issue)
+            for index in matching_indices:
+                key = (index, issue.issue_type, issue.column_name, issue.row_number)
+                if key in seen:
+                    continue
+                seen.add(key)
+                row = {
+                    "심각도": SEVERITY_LABELS.get(issue.severity, issue.severity),
+                    "확인 유형": ISSUE_LABELS.get(issue.issue_type, issue.issue_type),
+                    "안내 문구": issue.message,
+                    "파일명": issue.file_name,
+                    "시트명": issue.sheet_name,
+                    "원본 행 번호": issue.row_number,
+                    "컬럼명": issue.column_name,
+                }
+                row.update(result.result_frame.loc[index].to_dict())
+                rows.append(row)
+        return pd.DataFrame(rows)
+
+    def _matching_result_indices(self, frame: pd.DataFrame, issue) -> list[int]:
+        if issue.row_number is None:
+            return []
+
+        mask = pd.Series(True, index=frame.index)
+        matched_by_tracking = False
+        if "원본 행 번호" in frame.columns:
+            mask &= frame["원본 행 번호"].astype(str) == str(issue.row_number)
+            matched_by_tracking = True
+        if issue.file_name and "원본 파일명" in frame.columns:
+            mask &= frame["원본 파일명"].astype(str) == str(issue.file_name)
+        if issue.sheet_name and "원본 시트명" in frame.columns:
+            mask &= frame["원본 시트명"].astype(str) == str(issue.sheet_name)
+        indices = [int(index) for index in frame.index[mask]]
+        if indices:
+            return indices
+
+        if not matched_by_tracking:
+            index = int(issue.row_number) - 2
+            if 0 <= index < len(frame):
+                return [index]
+        return []
+
+    def _summary_frame(self, result: JobResult) -> pd.DataFrame:
+        rows = []
+        for key, value in result.summary.items():
+            rows.append({"항목": SUMMARY_LABELS.get(key, key), "값": value})
+        if not rows:
+            rows.append({"항목": "결과 행 수", "값": len(result.result_frame)})
+        return pd.DataFrame(rows)
+
+    def _style_workbook(self, workbook) -> None:
+        header_fill = PatternFill("solid", fgColor="1F6F5F")
+        header_font = Font(color="FFFFFF", bold=True)
+        for sheet in workbook.worksheets:
+            sheet.freeze_panes = "A2"
+            if sheet.max_row > 1 and sheet.max_column > 0:
+                sheet.auto_filter.ref = sheet.dimensions
+            for cell in sheet[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            for column_cells in sheet.columns:
+                max_length = 0
+                column_letter = get_column_letter(column_cells[0].column)
+                for cell in column_cells:
+                    value = "" if cell.value is None else str(cell.value)
+                    max_length = max(max_length, min(len(value), 42))
+                    cell.alignment = Alignment(vertical="center", wrap_text=True)
+                sheet.column_dimensions[column_letter].width = max(10, min(max_length + 2, 44))

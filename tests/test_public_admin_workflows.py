@@ -1,0 +1,187 @@
+from pathlib import Path
+
+import pandas as pd
+
+from vhlookup_core import AutoLookupPlanner, ExcelLoader, HeaderDetector, SheetDetector
+from vhlookup_core.consolidation import ConsolidationEngine
+from vhlookup_core.merge import MergeEngine
+from vhlookup_core.models import KeySpec
+from vhlookup_core.reconciliation import ReconciliationEngine
+from vhlookup_core.templates import get_template, templates_for_mode
+
+
+SAMPLES = Path("samples/public_admin")
+
+
+def _load_table(path: Path):
+    loader = ExcelLoader()
+    header_detector = HeaderDetector()
+    sheet_detector = SheetDetector(header_detector)
+    source = loader.load(path)
+    sheet = sheet_detector.select(source)
+    detection = header_detector.detect(sheet)
+    return header_detector.apply(sheet, detection)
+
+
+def test_public_admin_templates_cover_each_primary_mode():
+    assert templates_for_mode("consolidation")
+    assert templates_for_mode("lookup")
+    assert templates_for_mode("reconciliation")
+    assert templates_for_mode("horizontal")
+    assert get_template("school_submission_consolidation").standard_columns
+
+
+def test_school_submission_sample_consolidates_with_template():
+    result = ConsolidationEngine().consolidate_folder(
+        SAMPLES / "school_submissions",
+        template="school_submission_consolidation",
+    )
+
+    assert len(result.result_frame) == 4
+    assert list(result.result_frame.columns) == [
+        "원본 파일명",
+        "원본 시트명",
+        "원본 행 번호",
+        "기관명",
+        "기관코드",
+        "담당자",
+        "연락처",
+        "제출일",
+        "사업명",
+        "항목",
+        "금액",
+        "비고",
+    ]
+    assert set(result.result_frame["기관명"]) == {"강북초", "강남중"}
+    assert result.summary["workflow"] == "학교/부서 제출자료 한 번에 수합"
+    assert result.mapping_records
+
+
+def test_submission_error_sample_surfaces_admin_validation_issues():
+    result = ConsolidationEngine().consolidate_folder(
+        SAMPLES / "submission_errors",
+        template="school_submission_consolidation",
+    )
+
+    issue_types = {issue.issue_type for issue in result.issues}
+    assert {"required_value_missing", "numeric_value_invalid", "date_value_invalid", "duplicate_business_key"} <= issue_types
+    assert result.summary["validation_issue_count"] >= 4
+
+
+def test_training_lookup_sample_flags_numeric_id_format_mismatch():
+    reference = _load_table(SAMPLES / "hr_employee_master.csv")
+    target = _load_table(SAMPLES / "hr_training_completion.csv")
+
+    result = MergeEngine().merge_lookup(
+        reference,
+        target,
+        KeySpec(reference_key_columns=("사번",), target_key_columns=("직원번호",)),
+        value_columns=["성명", "부서", "직급", "소속"],
+    )
+
+    issue_types = {issue.issue_type for issue in result.issues}
+    assert "format_mismatch" in issue_types
+    assert "match_failed" in issue_types
+    assert result.result_frame.loc[1, "부서"] == "인사과"
+
+
+def test_lookup_plan_auto_matches_columns_without_examples_or_manual_keys():
+    reference = _load_table(SAMPLES / "hr_employee_master.csv")
+    target = _load_table(SAMPLES / "hr_training_completion.csv")
+
+    plan = AutoLookupPlanner().infer_lookup_plan(reference, target)
+
+    assert plan.key_spec.reference_key_columns == ("사번",)
+    assert plan.key_spec.target_columns() == ("직원번호",)
+    assert set(plan.value_columns) == {"성명", "부서", "직급", "소속"}
+    assert plan.confidence >= 0.55
+    assert plan.evidence_rows
+
+    result = MergeEngine().merge_lookup(
+        reference,
+        target,
+        plan.key_spec,
+        value_columns=list(plan.value_columns),
+    )
+
+    assert result.result_frame.loc[1, "부서"] == "인사과"
+
+
+def test_reconciliation_finds_missing_public_admin_rows():
+    reference = _load_table(SAMPLES / "hr_employee_master.csv")
+    target = _load_table(SAMPLES / "hr_training_completion.csv")
+
+    result = ReconciliationEngine().compare_lists(
+        reference,
+        target,
+        KeySpec(reference_key_columns=("사번",), target_key_columns=("직원번호",)),
+    )
+
+    assert result.summary["missing_in_target_rows"] >= 1
+    assert "대조 상태" in result.result_frame.columns
+    assert "missing_in_target" in {issue.issue_type for issue in result.issues}
+
+
+def test_reconciliation_auto_plan_reports_key_evidence_only():
+    reference = _load_table(SAMPLES / "hr_employee_master.csv")
+    target = _load_table(SAMPLES / "hr_training_completion.csv")
+
+    plan = AutoLookupPlanner().infer_reconciliation_key_spec(reference, target)
+
+    assert plan.key_spec.reference_key_columns == ("사번",)
+    assert plan.key_spec.target_columns() == ("직원번호",)
+    assert plan.value_columns == ()
+    assert {row["역할"] for row in plan.evidence_rows} == {"키 컬럼"}
+
+
+def test_allowance_budget_sample_supports_composite_key_lookup():
+    reference = _load_table(SAMPLES / "allowance_budget" / "rate_reference.csv")
+    target = _load_table(SAMPLES / "allowance_budget" / "payment_requests.csv")
+
+    plan = AutoLookupPlanner().infer_lookup_plan(
+        reference,
+        target,
+        preferred_reference_key_columns=("사번", "지급월"),
+        preferred_target_key_columns=("직원번호", "지급월"),
+        preferred_value_columns=("단가", "지급기준", "예산과목", "비고"),
+    )
+    result = MergeEngine().merge_lookup(reference, target, plan.key_spec, list(plan.value_columns))
+
+    assert plan.key_spec.reference_key_columns == ("사번", "지급월")
+    assert plan.key_spec.target_columns() == ("직원번호", "지급월")
+    assert result.result_frame.loc[1, "단가"] == "75000"
+    assert {"format_mismatch", "match_failed"} <= {issue.issue_type for issue in result.issues}
+
+
+def test_submission_reconciliation_sample_finds_missing_and_unknown_submitters():
+    expected = _load_table(SAMPLES / "submission_reconciliation" / "expected_submitters.csv")
+    received = _load_table(SAMPLES / "submission_reconciliation" / "received_submitters.csv")
+
+    plan = AutoLookupPlanner().infer_reconciliation_key_spec(
+        expected,
+        received,
+        preferred_reference_key_columns=("기관코드",),
+        preferred_target_key_columns=("제출기관코드",),
+    )
+    result = ReconciliationEngine().compare_lists(
+        expected,
+        received,
+        plan.key_spec,
+        reference_label="제출 대상 명단",
+        target_label="실제 제출 명단",
+    )
+
+    assert result.summary["missing_in_target_rows"] == 2
+    assert result.summary["missing_in_reference_rows"] == 1
+
+
+def test_messy_header_department_status_sample_consolidates():
+    result = ConsolidationEngine().consolidate_folder(
+        SAMPLES / "messy_headers",
+        template="department_status_consolidation",
+    )
+
+    assert len(result.result_frame) == 4
+    assert list(result.result_frame.columns) == ["원본 파일명", "원본 시트명", "원본 행 번호", "부서", "담당자", "연락처", "기준일", "현원", "비고"]
+    assert set(result.result_frame["부서"]) == {"총무과", "인사과", "예산과", "기획과"}
+    assert not [issue for issue in result.issues if issue.severity == "error"]
