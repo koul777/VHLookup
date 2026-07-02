@@ -21,22 +21,7 @@ GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을
 
 ## 주요 기능
 
-### 1. 원본 문제 표시 보고서
-
-제출받은 엑셀/CSV 파일을 실제로 합치거나 정리하기 전에, 파일 상태만 확인하는 보고서를 만듭니다.
-
-- 원본 파일은 수정하지 않음
-- 여러 파일을 한 번에 넣어서 파일별 구조 차이 확인
-- 실제 헤더가 몇 번째 줄인지 자동 탐지
-- 파일마다 컬럼명이 어떻게 다른지 비교
-- 필수값 누락, 숫자 오류, 날짜 오류, 중복 의심 확인
-- 성명, 연락처, 주민번호 패턴 같은 개인정보 의심 위치 확인
-- 결과 앞쪽의 `원본확인_*` 시트에 문제 위치를 색과 메모로 표시
-- `먼저확인` 시트에서 전체 문제 요약과 바로 볼 시트 안내
-
-이 기능은 "파일을 고치는 기능"이 아니라 "어떤 파일이 이상한지 먼저 표시하는 기능"입니다. 제출자료를 수합하기 전에 양식이 틀어진 파일, 개인정보가 섞인 파일, 값이 빠진 파일을 먼저 찾을 때 사용합니다.
-
-### 2. 분류별 시트 나누기
+### 1. 분류별 시트 나누기
 
 한 파일을 특정 열 기준으로 여러 시트로 나눕니다.
 
@@ -44,7 +29,7 @@ GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을
 - 기준 열은 드롭박스로 선택
 - 원본 전체 시트와 분류별 시트 생성
 
-### 3. 엑셀/CSV 파일 여러 개 합치기
+### 2. 엑셀/CSV 파일 여러 개 합치기
 
 여러 파일을 한 결과 파일로 합칩니다.
 
@@ -54,7 +39,7 @@ GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을
 - 자동 매칭이 틀리면 `컬럼 매칭 수정`에서 드롭박스로 직접 지정
 - 미리보기에서 앞 10행 확인 후 실행
 
-### 4. 전/후 파일 검증
+### 3. 전/후 파일 검증
 
 수정 전 파일과 수정 후 파일을 비교합니다.
 
@@ -64,7 +49,7 @@ GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을
 - 값이 바뀐 셀, 추가 행, 누락 행, 추가/삭제 컬럼 확인
 - 결과 파일의 `후파일_메모` 시트에서 변경 셀 메모 확인
 
-### 5. 피벗 요약표 만들기
+### 4. 피벗 요약표 만들기
 
 부서별, 기관별, 월별, 상태별 요약표를 만듭니다.
 
@@ -100,19 +85,9 @@ samples\public_admin
 
 좁은 화면에서도 보기 쉽도록 샘플별로 나누어 적었습니다.
 
-**제출자료 파일 구조 점검**
-
-- 누를 기능: `1. 원본 문제 표시 보고서`
-- 선택할 파일:
-  - `samples\public_admin\submission_errors\bad_school_a.csv`
-  - `samples\public_admin\submission_errors\bad_school_b.csv`
-- 화면 선택값: 파일 2개 선택
-- 결과에서 먼저 볼 시트: `원본확인_bad_school_a`, `원본확인_bad_school_b`
-- 그 다음 참고 시트: `먼저확인`, `파일점검`, `열비교`, `확인필요`, `개인정보점검`
-
 **부서별 시트 나누기**
 
-- 누를 기능: `2. 분류별 시트 나누기`
+- 누를 기능: `1. 분류별 시트 나누기`
 - 선택할 파일: `samples\public_admin\pivot_summary\budget_execution.csv`
 - 화면 선택값: 분류 기준열 `부서`
 - 결과에서 먼저 볼 시트: `총무과`, `예산과`, `복지과`, `민원과` 같은 분류별 시트
@@ -120,7 +95,7 @@ samples\public_admin
 
 **제출자료 행 합치기**
 
-- 누를 기능: `3. 엑셀/CSV 파일 여러 개 합치기`
+- 누를 기능: `2. 엑셀/CSV 파일 여러 개 합치기`
 - 선택할 파일:
   - `samples\public_admin\school_submissions\gangbuk_school.csv`
   - `samples\public_admin\school_submissions\gangnam_school.csv`
@@ -130,7 +105,7 @@ samples\public_admin
 
 **제목/안내문 있는 파일 행 합치기**
 
-- 누를 기능: `3. 엑셀/CSV 파일 여러 개 합치기`
+- 누를 기능: `2. 엑셀/CSV 파일 여러 개 합치기`
 - 선택할 파일:
   - `samples\public_admin\messy_headers\department_status_a.csv`
   - `samples\public_admin\messy_headers\department_status_b.csv`
@@ -140,7 +115,7 @@ samples\public_admin
 
 **직원 명단 열 합치기**
 
-- 누를 기능: `3. 엑셀/CSV 파일 여러 개 합치기`
+- 누를 기능: `2. 엑셀/CSV 파일 여러 개 합치기`
 - 선택할 파일:
   - `samples\public_admin\hr_training_completion.csv`
   - `samples\public_admin\hr_employee_master.csv`
@@ -150,7 +125,7 @@ samples\public_admin
 
 **수당/예산 기준표 열 합치기**
 
-- 누를 기능: `3. 엑셀/CSV 파일 여러 개 합치기`
+- 누를 기능: `2. 엑셀/CSV 파일 여러 개 합치기`
 - 선택할 파일:
   - `samples\public_admin\allowance_budget\payment_requests.csv`
   - `samples\public_admin\allowance_budget\rate_reference.csv`
@@ -160,7 +135,7 @@ samples\public_admin
 
 **전/후 파일 변경 검증**
 
-- 누를 기능: `4. 전/후 파일 검증`
+- 누를 기능: `3. 전/후 파일 검증`
 - 선택할 파일:
   - 수정 전: `samples\public_admin\before_after_validation\payment_before.csv`
   - 수정 후: `samples\public_admin\before_after_validation\payment_after.csv`
@@ -170,7 +145,7 @@ samples\public_admin
 
 **부서/월별 예산 피벗**
 
-- 누를 기능: `5. 피벗 요약표 만들기`
+- 누를 기능: `4. 피벗 요약표 만들기`
 - 선택할 파일: `samples\public_admin\pivot_summary\budget_execution.csv`
 - 화면 선택값: 행 기준 `부서`, 열 기준 `월`, 값 열 `금액`, 집계 방식 `합계`
 - 결과에서 먼저 볼 시트: `피벗요약`
@@ -178,13 +153,13 @@ samples\public_admin
 
 **상태별 처리 건수 피벗**
 
-- 누를 기능: `5. 피벗 요약표 만들기`
+- 누를 기능: `4. 피벗 요약표 만들기`
 - 선택할 파일: `samples\public_admin\pivot_summary\budget_execution.csv`
 - 화면 선택값: 행 기준 `상태`, 열 기준 `(선택 안 함)`, 값 열 `(행 개수)`, 집계 방식 `건수`
 - 결과에서 먼저 볼 시트: `피벗요약`
 - 그 다음 참고 시트: `먼저확인`, `상위목록`, `기준설명`, `원본`
 
-월별 가로표를 세로형 자료로 바꾸는 기능은 현재 exe 첫 화면의 1~5번 버튼에는 넣지 않았고, CLI의 `horizontal` 명령으로만 제공합니다.
+월별 가로표를 세로형 자료로 바꾸는 기능은 현재 exe 첫 화면의 1~4번 버튼에는 넣지 않았고, CLI의 `horizontal` 명령으로만 제공합니다.
 
 샘플 종류와 확인 포인트는 [docs/sample_catalog.md](docs/sample_catalog.md)에 더 자세히 정리되어 있습니다.
 

@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from vhlookup_core.excel_comments import make_comment
 from vhlookup_core.header import HeaderDetector
 from vhlookup_core.loader import ExcelLoader
 from vhlookup_core.models import JobResult
@@ -699,7 +699,7 @@ class AdminWorkbookTools:
         for cell in sheet[1]:
             cell.fill = fill
             if cell.comment is None:
-                cell.comment = Comment(message, "VHLookup")
+                cell.comment = make_comment(message)
 
     def _unique_sheet_name(self, value: object, used_sheet_names: set[str]) -> str:
         raw = re.sub(r"[\[\]\:\*\?\/\\]", "_", str(value)).strip() or "빈값"

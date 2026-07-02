@@ -4,10 +4,10 @@ import json
 from pathlib import Path
 
 import pandas as pd
-from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from vhlookup_core.excel_comments import make_comment
 from vhlookup_core.models import JobResult
 from vhlookup_core.privacy import PrivacyScanner
 
@@ -323,13 +323,13 @@ class ReportWriter:
                 continue
             cell.fill = fill
             if comments_left > 0 and cell.comment is None:
-                cell.comment = Comment(message, "VHLookup")
+                cell.comment = make_comment(message)
                 comments_left -= 1
 
     def _mark_cell(self, cell, fill: PatternFill, message: str) -> None:
         cell.fill = fill
         if cell.comment is None:
-            cell.comment = Comment(message, "VHLookup")
+            cell.comment = make_comment(message)
 
     def _find_column_index(self, sheet, column_name: str) -> int | None:
         for cell in sheet[1]:

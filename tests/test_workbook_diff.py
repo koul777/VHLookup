@@ -1,3 +1,5 @@
+from zipfile import ZipFile
+
 import pandas as pd
 from openpyxl import load_workbook
 
@@ -39,6 +41,14 @@ def test_workbook_diff_writes_comments_on_changed_after_cells(tmp_path):
     assert memo_sheet["C2"].comment is not None
     assert "전 값: 100" in memo_sheet["C2"].comment.text
     assert "후 값: 150" in memo_sheet["C2"].comment.text
+    with ZipFile(output) as archive:
+        drawing_xml = "\n".join(
+            archive.read(name).decode("utf-8", errors="ignore")
+            for name in archive.namelist()
+            if "commentsDrawing" in name
+        )
+    assert "width:420px" in drawing_xml
+    assert "height:160px" in drawing_xml
 
 
 def test_workbook_diff_accepts_user_corrected_column_mapping(tmp_path):

@@ -5,10 +5,10 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from vhlookup_core.excel_comments import make_comment
 from vhlookup_core.header import HeaderDetector
 from vhlookup_core.keys import KeyRecommender, build_key_series
 from vhlookup_core.loader import ExcelLoader
@@ -442,7 +442,7 @@ class WorkbookDiffReportWriter:
             if not column:
                 continue
             cell = sheet.cell(row=comment.row_index + 2, column=column)
-            cell.comment = Comment(comment.message, "VHLookup")
+            cell.comment = make_comment(comment.message)
             cell.fill = PatternFill("solid", fgColor=comment.fill)
 
     def _style_workbook(self, workbook) -> None:

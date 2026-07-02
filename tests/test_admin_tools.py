@@ -1,3 +1,6 @@
+import re
+from zipfile import ZipFile
+
 import pandas as pd
 from openpyxl import load_workbook
 
@@ -108,6 +111,16 @@ def test_pivot_summary_builds_cross_tab_and_workbook(tmp_path):
     assert {"먼저확인", "피벗요약", "상위목록", "기준설명", "원본"} <= set(sheets)
     assert workbook.sheetnames[0] == "피벗요약"
     assert workbook["피벗요약"]["A1"].comment is not None
+    with ZipFile(output) as archive:
+        drawing_xml = "\n".join(
+            archive.read(name).decode("utf-8", errors="ignore")
+            for name in archive.namelist()
+            if "commentsDrawing" in name
+        )
+    assert "width:420px" in drawing_xml
+    heights = [int(value) for value in re.findall(r"height:(\d+)px", drawing_xml)]
+    assert heights
+    assert min(heights) >= 160
     assert sheets["피벗요약"].set_index("부서").loc["예산", "합계"] == 250
 
 

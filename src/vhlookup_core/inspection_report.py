@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from vhlookup_core.excel_comments import make_comment
 from vhlookup_core.inspection import InspectionResult
 
 
@@ -157,12 +157,12 @@ class InspectionReportWriter:
                 for cell in sheet[row_index]:
                     cell.fill = issue_fill
                     if cell.comment is None:
-                        cell.comment = Comment(message, "VHLookup")
+                        cell.comment = make_comment(message)
 
     def _mark_column(self, sheet, column_index: int, fill: PatternFill, message: str, max_cell_comments: int) -> None:
         header = sheet.cell(row=1, column=column_index)
         header.fill = fill
-        header.comment = Comment(message, "VHLookup")
+        header.comment = make_comment(message)
         comments_left = max_cell_comments
         for row_index in range(2, sheet.max_row + 1):
             cell = sheet.cell(row=row_index, column=column_index)
@@ -170,7 +170,7 @@ class InspectionReportWriter:
                 continue
             cell.fill = fill
             if comments_left > 0 and cell.comment is None:
-                cell.comment = Comment(message, "VHLookup")
+                cell.comment = make_comment(message)
                 comments_left -= 1
 
     def _find_column_index(self, sheet, column_name: str) -> int | None:
