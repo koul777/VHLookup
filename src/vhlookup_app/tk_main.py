@@ -331,31 +331,25 @@ class LocalApp:
         )
         self._action_button(
             actions,
-            "2. 정리된 엑셀 새 파일 만들기",
-            "한 파일의 빈 행/빈 열, 공백, 중복을 정리해서 바로 작업할 결과표를 새로 만듭니다.",
-            self.quick_clean_file,
-        )
-        self._action_button(
-            actions,
-            "3. 분류별 시트 나누기",
+            "2. 분류별 시트 나누기",
             "부서, 기관명, 상태 같은 열을 기준으로 분류별 시트를 앞쪽에 만듭니다.",
             self.quick_split_sheets,
         )
         self._action_button(
             actions,
-            "4. 엑셀/CSV 파일 여러 개 합치기",
+            "3. 엑셀/CSV 파일 여러 개 합치기",
             "행 합치기 또는 열 합치기를 선택하고, 합쳐진 결과를 첫 시트로 만듭니다.",
             self.quick_consolidate,
         )
         self._action_button(
             actions,
-            "5. 전/후 파일 검증",
+            "4. 전/후 파일 검증",
             "수정 전/후 파일을 비교하고, 달라진 셀에 색과 메모를 남깁니다.",
             self.quick_diff_workbooks,
         )
         self._action_button(
             actions,
-            "6. 피벗 요약표 만들기",
+            "5. 피벗 요약표 만들기",
             "부서/기관/월별 건수, 합계, 평균 요약표를 드롭박스로 선택해 만듭니다.",
             self.quick_pivot_summary,
         )
@@ -426,19 +420,6 @@ class LocalApp:
             return [output]
 
         self._run("원본 문제 표시 보고서", job, open_path=self.output_dir)
-
-    def quick_clean_file(self) -> None:
-        file_path = self._ask_file_or_none("정리된 새 엑셀로 만들 파일 1개를 선택하세요")
-        if not file_path:
-            return
-
-        def job():
-            result = AdminWorkbookTools().clean_file(file_path)
-            output = self._timestamped_output("정리된_엑셀새파일")
-            ReportWriter().write_xlsx(result, output)
-            return [output]
-
-        self._run("정리된 엑셀 새 파일 만들기", job, open_path=self.output_dir)
 
     def quick_split_sheets(self) -> None:
         file_path = self._ask_file_or_none("분류별로 나눌 엑셀/CSV 파일을 선택하세요")
