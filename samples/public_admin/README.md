@@ -4,6 +4,18 @@
 
 CSV 파일은 Windows Excel에서 더블클릭으로 열어도 한글이 깨지지 않도록 UTF-8 BOM 형식으로 저장했습니다.
 
+## 개인정보 마스킹 샘플
+
+`privacy_masking/citizen_service_requests.csv`를 사용합니다.
+
+확인할 수 있는 흐름:
+- 성명 가운데 글자 마스킹
+- 주민등록번호 뒤 7자리 마스킹
+- 연락처 중간 번호 마스킹
+- 이메일 아이디 일부 마스킹
+- 계좌번호 가운데 숫자 마스킹
+- 주소 상세 위치 마스킹
+
 ## 1. 학교/부서 제출자료 수합
 
 앱에서 `학교/부서 제출자료 수합`을 선택하고 `samples/public_admin/school_submissions` 폴더를 고릅니다.

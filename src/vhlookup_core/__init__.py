@@ -20,6 +20,7 @@ from vhlookup_core.models import (
     WorkbookSource,
 )
 from vhlookup_core.privacy import PrivacyScanner
+from vhlookup_core.privacy_masking import PrivacyMaskingEngine, PrivacyMaskingResult
 from vhlookup_core.reconciliation import ReconciliationEngine
 from vhlookup_core.report import ReportWriter
 from vhlookup_core.sheet import SheetDetector
@@ -57,6 +58,8 @@ __all__ = [
     "ReconciliationEngine",
     "ReportWriter",
     "PrivacyScanner",
+    "PrivacyMaskingEngine",
+    "PrivacyMaskingResult",
     "SheetDetector",
     "SplitWorkbookResult",
     "ValidationIssue",

@@ -18,6 +18,7 @@ from vhlookup_core import (
     ConsolidationEngine,
     ExcelLoader,
     HeaderDetector,
+    PrivacyMaskingEngine,
     ReportWriter,
     SheetDetector,
     WorkbookDiffEngine,
@@ -323,25 +324,31 @@ class LocalApp:
         actions.pack(fill="x")
         self._action_button(
             actions,
-            "1. 분류별 시트 나누기",
+            "1. 개인정보 마스킹",
+            "이름, 주민등록번호, 연락처, 이메일, 계좌번호, 주소를 가린 새 엑셀을 만듭니다.",
+            self.quick_privacy_mask,
+        )
+        self._action_button(
+            actions,
+            "2. 분류별 시트 나누기",
             "부서, 기관명, 상태 같은 열을 기준으로 분류별 시트를 앞쪽에 만듭니다.",
             self.quick_split_sheets,
         )
         self._action_button(
             actions,
-            "2. 엑셀/CSV 파일 여러 개 합치기",
+            "3. 엑셀/CSV 파일 여러 개 합치기",
             "행 합치기 또는 열 합치기를 선택하고, 합쳐진 결과를 첫 시트로 만듭니다.",
             self.quick_consolidate,
         )
         self._action_button(
             actions,
-            "3. 전/후 파일 검증",
+            "4. 전/후 파일 검증",
             "수정 전/후 파일을 비교하고, 달라진 셀에 색과 메모를 남깁니다.",
             self.quick_diff_workbooks,
         )
         self._action_button(
             actions,
-            "4. 피벗 요약표 만들기",
+            "5. 피벗 요약표 만들기",
             "부서/기관/월별 건수, 합계, 평균 요약표를 드롭박스로 선택해 만듭니다.",
             self.quick_pivot_summary,
         )
@@ -399,6 +406,18 @@ class LocalApp:
             filetypes=[("Excel/CSV", "*.xlsx *.xlsm *.csv"), ("All files", "*.*")],
         )
         return [Path(path) for path in selected]
+
+    def quick_privacy_mask(self) -> None:
+        file_path = self._ask_file_or_none("개인정보를 마스킹할 엑셀/CSV 파일을 선택하세요")
+        if not file_path:
+            return
+
+        def job():
+            output = self._timestamped_output("개인정보_마스킹결과")
+            PrivacyMaskingEngine().write_xlsx(file_path, output)
+            return [output]
+
+        self._run("개인정보 마스킹", job, open_path=self.output_dir)
 
     def quick_split_sheets(self) -> None:
         file_path = self._ask_file_or_none("분류별로 나눌 엑셀/CSV 파일을 선택하세요")
