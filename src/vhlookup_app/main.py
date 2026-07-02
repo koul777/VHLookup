@@ -296,7 +296,7 @@ class MainWindow(QMainWindow):
                 standard_columns=standard_columns,
                 template=template,
             )
-            self.report_writer.write_xlsx(result, self.consolidation_output.text())
+            self.report_writer.write_xlsx(result, self.consolidation_output.text(), mark_result_cells=False)
             self._show_result(result)
         except Exception as exc:
             QMessageBox.critical(self, "수합 실패", str(exc))

@@ -190,13 +190,13 @@ def generate_demo_reports(output_dir: Path, samples_dir: Path) -> list[Path]:
         samples_dir / "school_submissions",
         template="school_submission_consolidation",
     )
-    writer.write_xlsx(consolidated, output_dir / "01_제출자료_수합결과.xlsx")
+    writer.write_xlsx(consolidated, output_dir / "01_제출자료_수합결과.xlsx", mark_result_cells=False)
 
     invalid_consolidated = ConsolidationEngine().consolidate_folder(
         samples_dir / "submission_errors",
         template="school_submission_consolidation",
     )
-    writer.write_xlsx(invalid_consolidated, output_dir / "02_오류검증_제출자료.xlsx")
+    writer.write_xlsx(invalid_consolidated, output_dir / "02_오류검증_제출자료.xlsx", mark_result_cells=False)
 
     employee_master = load_table(samples_dir / "hr_employee_master.csv")
     training = load_table(samples_dir / "hr_training_completion.csv")
@@ -260,7 +260,7 @@ def generate_demo_reports(output_dir: Path, samples_dir: Path) -> list[Path]:
         samples_dir / "messy_headers",
         template="department_status_consolidation",
     )
-    writer.write_xlsx(department_status, output_dir / "07_부서별현황_수합결과.xlsx")
+    writer.write_xlsx(department_status, output_dir / "07_부서별현황_수합결과.xlsx", mark_result_cells=False)
 
     monthly = load_table(samples_dir / "monthly_budget_wide.csv")
     converted = HorizontalTableEngine().wide_to_long(monthly, id_columns=["기관명", "항목"])
@@ -325,14 +325,14 @@ class LocalApp:
         actions.pack(fill="x")
         self._action_button(
             actions,
-            "1. 파일 문제 찾기(선택)",
-            "파일별 열 차이, 헤더 위치, 빈값, 개인정보 의심 컬럼을 색과 메모로 점검합니다.",
+            "1. 원본 문제 표시 보고서",
+            "파일을 고치지 않고 원본확인 시트에 오류, 빈값, 개인정보 의심 위치만 표시합니다.",
             self.quick_preflight,
         )
         self._action_button(
             actions,
-            "2. 엑셀 파일 정리하기",
-            "빈 행/빈 열, 공백, 중복을 정리하고 결과 시트에서 확인 항목을 바로 표시합니다.",
+            "2. 정리된 엑셀 새 파일 만들기",
+            "한 파일의 빈 행/빈 열, 공백, 중복을 정리해서 바로 작업할 결과표를 새로 만듭니다.",
             self.quick_clean_file,
         )
         self._action_button(
@@ -415,30 +415,30 @@ class LocalApp:
         return [Path(path) for path in selected]
 
     def quick_preflight(self) -> None:
-        files = self._ask_files_or_none("사전점검할 엑셀/CSV 파일들을 선택하세요")
+        files = self._ask_files_or_none("원본 문제 표시 보고서를 만들 엑셀/CSV 파일들을 선택하세요")
         if not files:
             return
 
         def job():
             result = InspectionEngine().inspect_files(files)
-            output = self._timestamped_output("여러파일_사전점검")
+            output = self._timestamped_output("원본문제_표시보고서")
             InspectionReportWriter().write_xlsx(result, output)
             return [output]
 
-        self._run("여러 파일 사전점검", job, open_path=self.output_dir)
+        self._run("원본 문제 표시 보고서", job, open_path=self.output_dir)
 
     def quick_clean_file(self) -> None:
-        file_path = self._ask_file_or_none("정리할 엑셀/CSV 파일을 선택하세요")
+        file_path = self._ask_file_or_none("정리된 새 엑셀로 만들 파일 1개를 선택하세요")
         if not file_path:
             return
 
         def job():
             result = AdminWorkbookTools().clean_file(file_path)
-            output = self._timestamped_output("엑셀파일_정리결과")
+            output = self._timestamped_output("정리된_엑셀새파일")
             ReportWriter().write_xlsx(result, output)
             return [output]
 
-        self._run("엑셀 파일 정리하기", job, open_path=self.output_dir)
+        self._run("정리된 엑셀 새 파일 만들기", job, open_path=self.output_dir)
 
     def quick_split_sheets(self) -> None:
         file_path = self._ask_file_or_none("분류별로 나눌 엑셀/CSV 파일을 선택하세요")
@@ -1038,7 +1038,7 @@ class LocalApp:
                         saved_mappings_by_file=manual_row_mappings,
                     )
                     output = self._timestamped_output("파일행합치기_결과")
-                ReportWriter().write_xlsx(result, output)
+                ReportWriter().write_xlsx(result, output, mark_result_cells=False)
                 return [output]
 
             label = "열 방향 파일 합치기" if selected_mode == "columns" else "행 방향 파일 합치기"
@@ -1546,7 +1546,7 @@ class LocalApp:
                 template="school_submission_consolidation",
             )
             output = Path(self.consolidate_output.get())
-            ReportWriter().write_xlsx(result, output)
+            ReportWriter().write_xlsx(result, output, mark_result_cells=False)
             return [output]
 
         self._run("제출자료 수합", job, open_path=Path(self.consolidate_output.get()).parent)

@@ -57,7 +57,8 @@ def test_admin_split_workbook_infers_department_column(tmp_path):
     assert split_result.split_column == "Department"
     assert {"먼저확인", "전체", "IT", "Sales"} <= set(sheets)
     assert workbook.sheetnames[0] == "IT"
-    assert first_sheet["B1"].comment is not None
+    assert first_sheet["B1"].comment is None
+    assert first_sheet["B2"].comment is None
     assert len(sheets["IT"]) == 2
 
 

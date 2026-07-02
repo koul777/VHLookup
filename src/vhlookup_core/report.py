@@ -94,6 +94,7 @@ class ReportWriter:
         result: JobResult,
         path: str | Path,
         include_sensitive_details: bool = False,
+        mark_result_cells: bool = True,
     ) -> Path:
         output_path = Path(path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -121,7 +122,8 @@ class ReportWriter:
             if privacy_records:
                 pd.DataFrame(privacy_records).to_excel(writer, sheet_name=SHEET_PRIVACY, index=False)
             self._style_workbook(writer.book)
-            self._mark_result_sheet(writer.book, result, privacy_records)
+            if mark_result_cells:
+                self._mark_result_sheet(writer.book, result, privacy_records)
         return output_path
 
     def _guide_frame(self, result: JobResult) -> pd.DataFrame:
@@ -145,20 +147,20 @@ class ReportWriter:
             {
                 "먼저 볼 내용": "업무 결과",
                 "현재 결과": f"{len(result.result_frame)}행, {len(result.result_frame.columns)}열",
-                "바로 할 일": "첫 번째 `결과` 시트에서 색칠된 셀과 메모를 먼저 확인하세요.",
+                "바로 할 일": "첫 번째 `결과` 시트에서 업무 결과를 먼저 확인하세요.",
                 "관련 시트": SHEET_RESULT,
             },
             {
                 "먼저 볼 내용": "개인정보 의심",
                 "현재 결과": self._privacy_summary_text(privacy_records),
-                "바로 할 일": "노란색 컬럼은 공유 전 필요 여부를 확인하세요.",
-                "관련 시트": f"{SHEET_RESULT}, {SHEET_PRIVACY}",
+                "바로 할 일": "공유 전 개인정보점검 시트에서 필요 여부를 확인하세요.",
+                "관련 시트": SHEET_PRIVACY,
             },
             {
                 "먼저 볼 내용": "확인 필요",
                 "현재 결과": f"{len(result.issues)}건",
-                "바로 할 일": "빨간색 셀/행 메모와 확인필요 시트를 확인하세요.",
-                "관련 시트": f"{SHEET_RESULT}, {SHEET_ISSUES}",
+                "바로 할 일": "확인필요 시트에서 오류, 누락, 자동추천 확인 항목을 검토하세요.",
+                "관련 시트": SHEET_ISSUES,
             },
             {
                 "먼저 볼 내용": "자동 매칭/추천",

@@ -1,4 +1,5 @@
 import pandas as pd
+from openpyxl import load_workbook
 
 from vhlookup_core.consolidation import ConsolidationEngine
 from vhlookup_core.horizontal import HorizontalTableEngine
@@ -128,6 +129,21 @@ def test_report_writer_extracts_error_rows(tmp_path):
     assert "오류행만" in sheets
     assert not sheets["오류행만"].empty
     assert {"확인 유형", "안내 문구", "원본 행 번호"} <= set(sheets["오류행만"].columns)
+
+
+def test_report_writer_can_leave_merge_result_unmarked(tmp_path):
+    output = tmp_path / "result.xlsx"
+    result = ConsolidationEngine().consolidate_folder(
+        "samples/public_admin/submission_errors",
+        template="school_submission_consolidation",
+    )
+
+    ReportWriter().write_xlsx(result, output, mark_result_cells=False)
+    workbook = load_workbook(output)
+    result_sheet = workbook[SHEET_RESULT]
+
+    assert workbook.sheetnames[0] == SHEET_RESULT
+    assert all(cell.comment is None for row in result_sheet.iter_rows() for cell in row)
 
 
 def test_horizontal_table_engine_detects_and_converts_month_columns():

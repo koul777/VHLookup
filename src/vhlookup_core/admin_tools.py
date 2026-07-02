@@ -304,7 +304,6 @@ class AdminWorkbookTools:
             )
             guide.to_excel(writer, sheet_name="먼저확인", index=False)
             self._style_workbook(writer.book)
-            self._mark_split_column(writer.book, split_sheet_names + ["전체"], selected_column)
         return SplitWorkbookResult(output, selected_column, len(groups), len(cleaned))
 
     def prepare_pivot_source(self, path: str | Path) -> tuple[pd.DataFrame, dict[str, Any]]:
@@ -685,18 +684,6 @@ class AdminWorkbookTools:
             )
         return pd.DataFrame(base_rows)
 
-    def _mark_split_column(self, workbook, sheet_names: list[str], split_column: str) -> None:
-        fill = PatternFill("solid", fgColor="DBEAFE")
-        message = f"분류 기준 열입니다: {split_column}\n이 값을 기준으로 시트가 나뉘었습니다."
-        for sheet_name in sheet_names:
-            if sheet_name not in workbook.sheetnames:
-                continue
-            sheet = workbook[sheet_name]
-            column_index = self._find_column_index(sheet, split_column)
-            if column_index is None:
-                continue
-            self._mark_column(sheet, column_index, fill, message, max_cell_comments=20)
-
     def _mark_pivot_summary(self, workbook, result: PivotSummaryResult) -> None:
         if "피벗요약" not in workbook.sheetnames:
             return
@@ -713,26 +700,6 @@ class AdminWorkbookTools:
             cell.fill = fill
             if cell.comment is None:
                 cell.comment = Comment(message, "VHLookup")
-
-    def _mark_column(self, sheet, column_index: int, fill: PatternFill, message: str, max_cell_comments: int) -> None:
-        header = sheet.cell(row=1, column=column_index)
-        header.fill = fill
-        header.comment = Comment(message, "VHLookup")
-        comments_left = max_cell_comments
-        for row_index in range(2, sheet.max_row + 1):
-            cell = sheet.cell(row=row_index, column=column_index)
-            if cell.value in (None, ""):
-                continue
-            cell.fill = fill
-            if comments_left > 0 and cell.comment is None:
-                cell.comment = Comment(message, "VHLookup")
-                comments_left -= 1
-
-    def _find_column_index(self, sheet, column_name: str) -> int | None:
-        for cell in sheet[1]:
-            if str(cell.value) == column_name:
-                return int(cell.column)
-        return None
 
     def _unique_sheet_name(self, value: object, used_sheet_names: set[str]) -> str:
         raw = re.sub(r"[\[\]\:\*\?\/\\]", "_", str(value)).strip() or "빈값"
