@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
@@ -97,8 +98,8 @@ class ReportWriter:
         output_path = Path(path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-            self._guide_frame(result).to_excel(writer, sheet_name=SHEET_GUIDE, index=False)
             result.result_frame.to_excel(writer, sheet_name=SHEET_RESULT, index=False)
+            self._guide_frame(result).to_excel(writer, sheet_name=SHEET_GUIDE, index=False)
             self._issue_frame(result, include_sensitive_details).to_excel(writer, sheet_name=SHEET_ISSUES, index=False)
             error_rows = self._error_rows_frame(result)
             if not error_rows.empty:
@@ -120,6 +121,7 @@ class ReportWriter:
             if privacy_records:
                 pd.DataFrame(privacy_records).to_excel(writer, sheet_name=SHEET_PRIVACY, index=False)
             self._style_workbook(writer.book)
+            self._mark_result_sheet(writer.book, result, privacy_records)
         return output_path
 
     def _guide_frame(self, result: JobResult) -> pd.DataFrame:
@@ -138,11 +140,44 @@ class ReportWriter:
                         "우선 조치": matching.iloc[0]["우선 조치"],
                     }
                 )
+        privacy_records = result.privacy_records or PrivacyScanner().scan_frame(result.result_frame)
         guide_rows = [
-            {"확인 유형": "처리 결과", "건수": result.summary.get("row_count", len(result.result_frame)), "우선 조치": "결과 시트에서 통합/대조 결과를 확인하세요."},
-            {"확인 유형": "확인 필요", "건수": len(result.issues), "우선 조치": "확인필요 시트에서 오류와 경고를 먼저 처리하세요."},
+            {
+                "먼저 볼 내용": "업무 결과",
+                "현재 결과": f"{len(result.result_frame)}행, {len(result.result_frame.columns)}열",
+                "바로 할 일": "첫 번째 `결과` 시트에서 색칠된 셀과 메모를 먼저 확인하세요.",
+                "관련 시트": SHEET_RESULT,
+            },
+            {
+                "먼저 볼 내용": "개인정보 의심",
+                "현재 결과": self._privacy_summary_text(privacy_records),
+                "바로 할 일": "노란색 컬럼은 공유 전 필요 여부를 확인하세요.",
+                "관련 시트": f"{SHEET_RESULT}, {SHEET_PRIVACY}",
+            },
+            {
+                "먼저 볼 내용": "확인 필요",
+                "현재 결과": f"{len(result.issues)}건",
+                "바로 할 일": "빨간색 셀/행 메모와 확인필요 시트를 확인하세요.",
+                "관련 시트": f"{SHEET_RESULT}, {SHEET_ISSUES}",
+            },
+            {
+                "먼저 볼 내용": "자동 매칭/추천",
+                "현재 결과": f"{len(result.mapping_records)}건",
+                "바로 할 일": "컬럼명이 달랐던 업무는 자동추천근거 시트에서 맞게 붙었는지 확인하세요.",
+                "관련 시트": SHEET_AUTO_EVIDENCE,
+            },
         ]
-        return pd.DataFrame(guide_rows + issue_count_rows)
+        if issue_count_rows:
+            guide_rows.extend(
+                {
+                    "먼저 볼 내용": row["확인 유형"],
+                    "현재 결과": f"{row['건수']}건",
+                    "바로 할 일": row["우선 조치"],
+                    "관련 시트": SHEET_ISSUES,
+                }
+                for row in issue_count_rows
+            )
+        return pd.DataFrame(guide_rows)
 
     def _issue_frame(self, result: JobResult, include_sensitive_details: bool) -> pd.DataFrame:
         rows = []
@@ -221,6 +256,84 @@ class ReportWriter:
         if not rows:
             rows.append({"항목": "결과 행 수", "값": len(result.result_frame)})
         return pd.DataFrame(rows)
+
+    def _mark_result_sheet(self, workbook, result: JobResult, privacy_records: list[dict[str, object]]) -> None:
+        if SHEET_RESULT not in workbook.sheetnames:
+            return
+        sheet = workbook[SHEET_RESULT]
+        privacy_fill = PatternFill("solid", fgColor="FDE68A")
+        issue_fill = PatternFill("solid", fgColor="FCA5A5")
+
+        for record in privacy_records:
+            column_index = self._find_column_index(sheet, str(record.get("컬럼명", "")))
+            if column_index is None:
+                continue
+            message = (
+                f"개인정보 의심: {record.get('점검 유형', '')}\n"
+                f"위험도: {record.get('위험도', '')}\n"
+                f"감지 건수: {record.get('감지 건수', '')}\n"
+                f"{record.get('조치 안내', '')}"
+            )
+            self._mark_column(sheet, column_index, privacy_fill, message, max_cell_comments=30)
+
+        for issue in result.issues:
+            indices = self._matching_result_indices(result.result_frame, issue)
+            message = (
+                f"확인 필요: {ISSUE_LABELS.get(issue.issue_type, issue.issue_type)}\n"
+                f"{issue.message}\n"
+                f"조치: {ISSUE_ACTIONS.get(issue.issue_type, '원본 자료와 매핑 설정을 확인하세요.')}"
+            )
+            if indices:
+                for index in indices:
+                    excel_row = int(index) + 2
+                    if issue.column_name:
+                        column_index = self._find_column_index(sheet, issue.column_name)
+                        if column_index is not None:
+                            self._mark_cell(sheet.cell(row=excel_row, column=column_index), issue_fill, message)
+                            continue
+                    for cell in sheet[excel_row]:
+                        self._mark_cell(cell, issue_fill, message)
+                continue
+            if issue.column_name:
+                column_index = self._find_column_index(sheet, issue.column_name)
+                if column_index is not None:
+                    self._mark_column(sheet, column_index, issue_fill, message, max_cell_comments=10)
+
+    def _privacy_summary_text(self, records: list[dict[str, object]]) -> str:
+        if not records:
+            return "의심 항목 없음"
+        counts: dict[str, int] = {}
+        for record in records:
+            category = str(record.get("점검 유형", "") or "기타")
+            try:
+                count = int(record.get("감지 건수", 0) or 0)
+            except (TypeError, ValueError):
+                count = 0
+            counts[category] = counts.get(category, 0) + count
+        return ", ".join(f"{category} {count}건" for category, count in counts.items())
+
+    def _mark_column(self, sheet, column_index: int, fill: PatternFill, message: str, max_cell_comments: int) -> None:
+        self._mark_cell(sheet.cell(row=1, column=column_index), fill, message)
+        comments_left = max_cell_comments
+        for row_index in range(2, sheet.max_row + 1):
+            cell = sheet.cell(row=row_index, column=column_index)
+            if cell.value in (None, ""):
+                continue
+            cell.fill = fill
+            if comments_left > 0 and cell.comment is None:
+                cell.comment = Comment(message, "VHLookup")
+                comments_left -= 1
+
+    def _mark_cell(self, cell, fill: PatternFill, message: str) -> None:
+        cell.fill = fill
+        if cell.comment is None:
+            cell.comment = Comment(message, "VHLookup")
+
+    def _find_column_index(self, sheet, column_name: str) -> int | None:
+        for cell in sheet[1]:
+            if str(cell.value) == column_name:
+                return int(cell.column)
+        return None
 
     def _style_workbook(self, workbook) -> None:
         header_fill = PatternFill("solid", fgColor="1F6F5F")

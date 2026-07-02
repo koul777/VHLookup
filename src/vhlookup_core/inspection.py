@@ -67,6 +67,7 @@ class InspectionEngine:
         column_rows: list[dict[str, object]] = []
         column_profile_rows: list[dict[str, object]] = []
         privacy_rows: list[dict[str, object]] = []
+        source_tables: dict[str, pd.DataFrame] = {}
         columns_by_file: dict[str, list[str]] = {}
         issues: list[ValidationIssue] = []
         file_paths = [Path(file) for file in files]
@@ -84,6 +85,7 @@ class InspectionEngine:
                     if is_selected:
                         selected_detection = detection
                         selected_table = self.header_detector.apply(sheet, detection)
+                        source_tables[file.name] = selected_table.copy()
                         columns_by_file[file.name] = [str(column) for column in selected_table.columns]
                         column_profile_rows.extend(
                             self._column_profile_rows(file.name, sheet.name, selected_table)
@@ -179,6 +181,7 @@ class InspectionEngine:
             column_comparison=column_comparison,
             column_profiles=pd.DataFrame(column_profile_rows),
             privacy_records=pd.DataFrame(privacy_rows),
+            source_tables=source_tables,
             issues=issues,
             summary={
                 "input_path": input_label or "선택 파일",
@@ -262,6 +265,7 @@ class InspectionResult:
         column_comparison: pd.DataFrame | None = None,
         column_profiles: pd.DataFrame | None = None,
         privacy_records: pd.DataFrame | None = None,
+        source_tables: dict[str, pd.DataFrame] | None = None,
     ) -> None:
         self.files = files
         self.sheets = sheets
@@ -269,5 +273,6 @@ class InspectionResult:
         self.column_comparison = column_comparison if column_comparison is not None else pd.DataFrame()
         self.column_profiles = column_profiles if column_profiles is not None else pd.DataFrame()
         self.privacy_records = privacy_records if privacy_records is not None else pd.DataFrame()
+        self.source_tables = source_tables or {}
         self.issues = issues
         self.summary = summary

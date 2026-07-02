@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+from openpyxl import load_workbook
 
 from vhlookup_cli.main import main
 from vhlookup_core.inspection import InspectionEngine
@@ -97,12 +98,17 @@ def test_inspection_compares_selected_files_and_flags_sensitive_columns(tmp_path
     result = InspectionEngine().inspect_files([file_a, file_b])
     InspectionReportWriter().write_xlsx(result, output)
     sheets = pd.read_excel(output, sheet_name=None)
+    workbook = load_workbook(output)
+    source_sheet = workbook[f"원본확인_{file_a.stem}"]
 
     assert any(issue.issue_type == "column_schema_mismatch" for issue in result.issues)
+    assert list(sheets)[0] == f"원본확인_{file_a.stem}"
     assert "열비교" in sheets
     assert "개인정보점검" in sheets
     assert file_b.name in set(result.column_comparison["누락 파일"])
     assert {"직원명", "연락처"} <= set(sheets["개인정보점검"]["컬럼명"])
+    assert source_sheet["C1"].comment is not None
+    assert source_sheet["C2"].fill.fgColor.rgb in {"00FDE68A", "FDE68A"}
 
 
 def test_cli_lookup_auto_matches_without_manual_columns(tmp_path):

@@ -2,6 +2,8 @@
 
 공공기관 행정직 사용 흐름을 바로 시연하기 위한 로컬 샘플입니다.
 
+CSV 파일은 Windows Excel에서 더블클릭으로 열어도 한글이 깨지지 않도록 UTF-8 BOM 형식으로 저장했습니다.
+
 ## 1. 학교/부서 제출자료 수합
 
 앱에서 `학교/부서 제출자료 수합`을 선택하고 `samples/public_admin/school_submissions` 폴더를 고릅니다.

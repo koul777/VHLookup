@@ -280,86 +280,115 @@ class LocalApp:
     def __init__(self, root: Tk) -> None:
         self.root = root
         self.root.title(APP_TITLE)
-        self.root.geometry("940x720")
+        self.root.geometry("1020x760")
+        self.root.minsize(900, 680)
+        self.root.configure(bg="#F4F7FA")
         self.base_dir = app_base_dir()
         self.output_dir = self.base_dir / "outputs"
         self.output_dir.mkdir(exist_ok=True)
 
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("TButton", padding=7)
-        style.configure("TLabel", padding=3)
+        style.configure("App.TFrame", background="#F4F7FA")
+        style.configure("Panel.TFrame", background="#FFFFFF", relief="flat")
+        style.configure("Header.TFrame", background="#1F6F5F")
+        style.configure("HeaderTitle.TLabel", background="#1F6F5F", foreground="#FFFFFF", font=("", 20, "bold"), padding=4)
+        style.configure("HeaderSub.TLabel", background="#1F6F5F", foreground="#D7F3EE", font=("", 10), padding=4)
+        style.configure("Section.TLabel", background="#F4F7FA", foreground="#17324D", font=("", 12, "bold"))
+        style.configure("Action.TFrame", background="#FFFFFF")
+        style.configure("ActionTitle.TLabel", background="#FFFFFF", foreground="#17324D", font=("", 10, "bold"))
+        style.configure("ActionDesc.TLabel", background="#FFFFFF", foreground="#526173", font=("", 9))
+        style.configure("Status.TLabel", background="#F4F7FA", foreground="#17324D", font=("", 9, "bold"))
+        style.configure("TButton", padding=(10, 7), font=("", 9))
+        style.configure("Action.TButton", padding=(12, 8), font=("", 9, "bold"))
+        style.map("Action.TButton", background=[("active", "#DCEFEA")])
 
         self.status = StringVar(value="준비됨")
         self._build()
 
     def _build(self) -> None:
-        top = ttk.Frame(self.root, padding=12)
+        top = ttk.Frame(self.root, padding=14, style="App.TFrame")
         top.pack(fill="both", expand=True)
 
-        title = ttk.Label(top, text="엑셀 수합/대조를 버튼으로 실행합니다.", font=("", 16, "bold"))
-        title.pack(anchor="w", pady=(0, 8))
+        header = ttk.Frame(top, padding=(18, 16), style="Header.TFrame")
+        header.pack(fill="x")
+        ttk.Label(header, text="VHLookup Local", style="HeaderTitle.TLabel").pack(anchor="w")
+        ttk.Label(
+            header,
+            text="엑셀 수합, 대조, 검증, 피벗 요약을 로컬 PC에서 처리합니다. 원본 파일은 수정하지 않습니다.",
+            style="HeaderSub.TLabel",
+        ).pack(anchor="w", pady=(4, 0))
 
-        subtitle = ttk.Label(
-            top,
-            text="원본 파일은 수정하지 않습니다. 결과 엑셀은 outputs 폴더에 새 파일로 저장되고, 완료 후 폴더가 열립니다.",
-        )
-        subtitle.pack(anchor="w", pady=(0, 12))
+        ttk.Label(top, text="실행할 작업", style="Section.TLabel").pack(anchor="w", pady=(14, 6))
 
-        actions = ttk.LabelFrame(top, text="실행할 작업 선택", padding=12)
+        actions = ttk.Frame(top, padding=10, style="Panel.TFrame")
         actions.pack(fill="x")
         self._action_button(
             actions,
             "1. 파일 문제 찾기(선택)",
-            "파일별 열 차이, 헤더 위치, 빈값, 개인정보 의심 컬럼을 따로 점검합니다.",
+            "파일별 열 차이, 헤더 위치, 빈값, 개인정보 의심 컬럼을 색과 메모로 점검합니다.",
             self.quick_preflight,
         )
         self._action_button(
             actions,
             "2. 엑셀 파일 정리하기",
-            "빈 행/빈 열을 정리하고 필터/틀고정/점검 시트를 붙인 새 파일을 만듭니다.",
+            "빈 행/빈 열, 공백, 중복을 정리하고 결과 시트에서 확인 항목을 바로 표시합니다.",
             self.quick_clean_file,
         )
         self._action_button(
             actions,
             "3. 분류별 시트 나누기",
-            "부서, 기관명, Department 같은 열을 기준으로 시트를 자동 분리합니다.",
+            "부서, 기관명, 상태 같은 열을 기준으로 분류별 시트를 앞쪽에 만듭니다.",
             self.quick_split_sheets,
         )
         self._action_button(
             actions,
             "4. 엑셀/CSV 파일 여러 개 합치기",
-            "파일을 먼저 올린 뒤 행 합치기 또는 열 합치기를 선택해서 실행합니다.",
+            "행 합치기 또는 열 합치기를 선택하고, 합쳐진 결과를 첫 시트로 만듭니다.",
             self.quick_consolidate,
         )
         self._action_button(
             actions,
             "5. 전/후 파일 검증",
-            "수정 전 파일과 수정 후 파일을 비교하고, 달라진 셀에 메모를 남긴 결과 파일을 만듭니다.",
+            "수정 전/후 파일을 비교하고, 달라진 셀에 색과 메모를 남깁니다.",
             self.quick_diff_workbooks,
         )
         self._action_button(
             actions,
             "6. 피벗 요약표 만들기",
-            "부서/기관/월별 건수, 합계, 평균 같은 요약표를 드롭박스로 선택해 만듭니다.",
+            "부서/기관/월별 건수, 합계, 평균 요약표를 드롭박스로 선택해 만듭니다.",
             self.quick_pivot_summary,
         )
 
-        log_frame = ttk.LabelFrame(top, text="실행 결과", padding=8)
-        log_frame.pack(fill="both", expand=True, pady=(10, 0))
-        self.log = Text(log_frame, height=10, wrap="word")
+        ttk.Label(top, text="실행 상태", style="Section.TLabel").pack(anchor="w", pady=(14, 6))
+        log_frame = ttk.Frame(top, padding=10, style="Panel.TFrame")
+        log_frame.pack(fill="both", expand=True)
+        self.log = Text(
+            log_frame,
+            height=8,
+            wrap="word",
+            relief="flat",
+            bg="#FBFCFE",
+            fg="#17324D",
+            insertbackground="#17324D",
+            padx=10,
+            pady=8,
+        )
         self.log.pack(fill="both", expand=True)
-        bottom = ttk.Frame(top)
+        bottom = ttk.Frame(top, style="App.TFrame")
         bottom.pack(fill="x", pady=(8, 0))
-        ttk.Label(bottom, textvariable=self.status).pack(side="left")
+        ttk.Label(bottom, textvariable=self.status, style="Status.TLabel").pack(side="left")
         ttk.Button(bottom, text="결과 폴더 열기", command=lambda: self.open_folder(self.output_dir)).pack(side="right")
 
     def _action_button(self, parent, title: str, description: str, command) -> None:
-        row = ttk.Frame(parent)
-        row.pack(fill="x", pady=5)
-        button = ttk.Button(row, text=title, command=command, width=28)
+        row = ttk.Frame(parent, padding=(8, 7), style="Action.TFrame")
+        row.pack(fill="x", pady=3)
+        button = ttk.Button(row, text=title, command=command, width=30, style="Action.TButton")
         button.pack(side="left", anchor="n")
-        ttk.Label(row, text=description, wraplength=560, justify="left").pack(side="left", fill="x", expand=True, padx=10)
+        text_box = ttk.Frame(row, style="Action.TFrame")
+        text_box.pack(side="left", fill="x", expand=True, padx=(12, 0))
+        ttk.Label(text_box, text=title.split(". ", 1)[-1], style="ActionTitle.TLabel").pack(anchor="w")
+        ttk.Label(text_box, text=description, wraplength=650, justify="left", style="ActionDesc.TLabel").pack(anchor="w", pady=(2, 0))
 
     def _timestamped_output(self, base_name: str) -> Path:
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")

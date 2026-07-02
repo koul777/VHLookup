@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
@@ -282,10 +283,17 @@ class AdminWorkbookTools:
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
         groups = list(cleaned.groupby(cleaned[selected_column].map(lambda value: "(빈값)" if is_blank(value) else str(value)), dropna=False))
-        used_sheet_names = set()
+        used_sheet_names = {"전체", "먼저확인"}
+        split_sheet_names: list[str] = []
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            for value, group in groups:
+                sheet_name = self._unique_sheet_name(value, used_sheet_names)
+                group.to_excel(writer, sheet_name=sheet_name, index=False)
+                split_sheet_names.append(sheet_name)
+            cleaned.to_excel(writer, sheet_name="전체", index=False)
             guide = pd.DataFrame(
                 [
+                    {"항목": "먼저 볼 내용", "내용": "앞쪽의 분류별 시트에서 나뉜 결과를 바로 확인하세요."},
                     {"항목": "원본 파일", "내용": metadata["file_name"]},
                     {"항목": "원본 시트", "내용": metadata["sheet_name"]},
                     {"항목": "분류 기준 열", "내용": selected_column},
@@ -295,11 +303,8 @@ class AdminWorkbookTools:
                 ]
             )
             guide.to_excel(writer, sheet_name="먼저확인", index=False)
-            cleaned.to_excel(writer, sheet_name="전체", index=False)
-            for value, group in groups:
-                sheet_name = self._unique_sheet_name(value, used_sheet_names)
-                group.to_excel(writer, sheet_name=sheet_name, index=False)
             self._style_workbook(writer.book)
+            self._mark_split_column(writer.book, split_sheet_names + ["전체"], selected_column)
         return SplitWorkbookResult(output, selected_column, len(groups), len(cleaned))
 
     def prepare_pivot_source(self, path: str | Path) -> tuple[pd.DataFrame, dict[str, Any]]:
@@ -422,14 +427,15 @@ class AdminWorkbookTools:
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            self._pivot_check_frame(result).to_excel(writer, sheet_name="먼저확인", index=False)
             result.pivot_frame.to_excel(writer, sheet_name="피벗요약", index=False)
+            self._pivot_check_frame(result).to_excel(writer, sheet_name="먼저확인", index=False)
             result.top_frame.to_excel(writer, sheet_name="상위목록", index=False)
             result.guide_frame.to_excel(writer, sheet_name="기준설명", index=False)
             if not result.invalid_rows.empty:
                 result.invalid_rows.to_excel(writer, sheet_name="오류행만", index=False)
             result.source_frame.to_excel(writer, sheet_name="원본", index=False)
             self._style_workbook(writer.book)
+            self._mark_pivot_summary(writer.book, result)
         return PivotWorkbookResult(
             output_path=output,
             row_column=str(result.summary["row_column"]),
@@ -649,30 +655,84 @@ class AdminWorkbookTools:
 
     def _pivot_check_frame(self, result: PivotSummaryResult) -> pd.DataFrame:
         invalid_count = int(result.summary.get("invalid_value_count", 0))
+        base_rows = [
+            {
+                "먼저 볼 내용": "피벗 요약표",
+                "현재 결과": f"{result.summary.get('summary_row_count', 0)}행",
+                "바로 할 일": "첫 번째 `피벗요약` 시트에서 요약 결과를 확인하세요.",
+                "관련 시트": "피벗요약",
+            },
+            {
+                "먼저 볼 내용": "요약 기준",
+                "현재 결과": (
+                    f"행 기준: {result.summary.get('row_column', '')}, "
+                    f"열 기준: {result.summary.get('column_column', '') or '사용 안 함'}, "
+                    f"값: {result.summary.get('value_column', '')}, "
+                    f"집계: {result.summary.get('aggregation', '')}"
+                ),
+                "바로 할 일": "기준이 의도와 다르면 프로그램에서 드롭박스를 다시 선택해 실행하세요.",
+                "관련 시트": "기준설명",
+            },
+        ]
         if invalid_count:
-            return pd.DataFrame(
-                [
-                    {
-                        "확인 유형": "숫자 오류 행",
-                        "건수": invalid_count,
-                        "우선 조치": "`오류행만` 시트에서 숫자로 읽히지 않은 값을 확인하세요.",
-                    },
-                    {
-                        "확인 유형": "처리 결과",
-                        "건수": result.summary.get("summary_row_count", 0),
-                        "우선 조치": "`피벗요약` 시트에서 요약 결과를 확인하세요.",
-                    },
-                ]
-            )
-        return pd.DataFrame(
-            [
+            base_rows.append(
                 {
-                    "확인 유형": "처리 결과",
-                    "건수": result.summary.get("summary_row_count", 0),
-                    "우선 조치": "`피벗요약` 시트에서 요약 결과를 확인하세요.",
+                    "먼저 볼 내용": "숫자 오류 행",
+                    "현재 결과": f"{invalid_count}건",
+                    "바로 할 일": "`오류행만` 시트에서 숫자로 읽히지 않은 값을 확인하세요.",
+                    "관련 시트": "오류행만",
                 }
-            ]
+            )
+        return pd.DataFrame(base_rows)
+
+    def _mark_split_column(self, workbook, sheet_names: list[str], split_column: str) -> None:
+        fill = PatternFill("solid", fgColor="DBEAFE")
+        message = f"분류 기준 열입니다: {split_column}\n이 값을 기준으로 시트가 나뉘었습니다."
+        for sheet_name in sheet_names:
+            if sheet_name not in workbook.sheetnames:
+                continue
+            sheet = workbook[sheet_name]
+            column_index = self._find_column_index(sheet, split_column)
+            if column_index is None:
+                continue
+            self._mark_column(sheet, column_index, fill, message, max_cell_comments=20)
+
+    def _mark_pivot_summary(self, workbook, result: PivotSummaryResult) -> None:
+        if "피벗요약" not in workbook.sheetnames:
+            return
+        sheet = workbook["피벗요약"]
+        fill = PatternFill("solid", fgColor="DBEAFE")
+        message = (
+            f"피벗 요약 기준\n"
+            f"행 기준: {result.summary.get('row_column', '')}\n"
+            f"열 기준: {result.summary.get('column_column', '') or '사용 안 함'}\n"
+            f"값: {result.summary.get('value_column', '')}\n"
+            f"집계: {result.summary.get('aggregation', '')}"
         )
+        for cell in sheet[1]:
+            cell.fill = fill
+            if cell.comment is None:
+                cell.comment = Comment(message, "VHLookup")
+
+    def _mark_column(self, sheet, column_index: int, fill: PatternFill, message: str, max_cell_comments: int) -> None:
+        header = sheet.cell(row=1, column=column_index)
+        header.fill = fill
+        header.comment = Comment(message, "VHLookup")
+        comments_left = max_cell_comments
+        for row_index in range(2, sheet.max_row + 1):
+            cell = sheet.cell(row=row_index, column=column_index)
+            if cell.value in (None, ""):
+                continue
+            cell.fill = fill
+            if comments_left > 0 and cell.comment is None:
+                cell.comment = Comment(message, "VHLookup")
+                comments_left -= 1
+
+    def _find_column_index(self, sheet, column_name: str) -> int | None:
+        for cell in sheet[1]:
+            if str(cell.value) == column_name:
+                return int(cell.column)
+        return None
 
     def _unique_sheet_name(self, value: object, used_sheet_names: set[str]) -> str:
         raw = re.sub(r"[\[\]\:\*\?\/\\]", "_", str(value)).strip() or "빈값"

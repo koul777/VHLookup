@@ -99,6 +99,8 @@ GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을
 samples\public_admin
 ```
 
+샘플 CSV는 Windows Excel에서 더블클릭으로 열어도 한글이 깨지지 않도록 UTF-8 BOM 형식으로 저장했습니다.
+
 ### 샘플별 체험 방법
 
 좁은 화면에서도 보기 쉽도록 샘플별로 나누어 적었습니다.
@@ -110,21 +112,24 @@ samples\public_admin
   - `samples\public_admin\submission_errors\bad_school_a.csv`
   - `samples\public_admin\submission_errors\bad_school_b.csv`
 - 화면 선택값: 파일 2개 선택
-- 결과에서 볼 시트: `먼저확인`, `파일점검`, `열비교`, `확인필요`, `개인정보점검`
+- 결과에서 먼저 볼 시트: `원본확인_bad_school_a`, `원본확인_bad_school_b`
+- 그 다음 참고 시트: `먼저확인`, `파일점검`, `열비교`, `확인필요`, `개인정보점검`
 
 **지저분한 파일 정리**
 
 - 누를 기능: `2. 엑셀 파일 정리하기`
 - 선택할 파일: `samples\public_admin\messy_headers\department_status_a.csv`
 - 화면 선택값: 파일 1개 선택
-- 결과에서 볼 시트: `먼저확인`, `결과`, `처리요약`, `자동추천근거`
+- 결과에서 먼저 볼 시트: `결과`
+- 그 다음 참고 시트: `먼저확인`, `처리요약`, `자동추천근거`
 
 **부서별 시트 나누기**
 
 - 누를 기능: `3. 분류별 시트 나누기`
 - 선택할 파일: `samples\public_admin\pivot_summary\budget_execution.csv`
 - 화면 선택값: 분류 기준열 `부서`
-- 결과에서 볼 시트: `먼저확인`, `전체`, `총무과`, `예산과`, `복지과`, `민원과`
+- 결과에서 먼저 볼 시트: `총무과`, `예산과`, `복지과`, `민원과` 같은 분류별 시트
+- 그 다음 참고 시트: `전체`, `먼저확인`
 
 **제출자료 행 합치기**
 
@@ -133,7 +138,8 @@ samples\public_admin
   - `samples\public_admin\school_submissions\gangbuk_school.csv`
   - `samples\public_admin\school_submissions\gangnam_school.csv`
 - 화면 선택값: 합치기 방향 `행 합치기`
-- 결과에서 볼 시트: `먼저확인`, `결과`, `자동추천근거`, `개인정보점검`
+- 결과에서 먼저 볼 시트: `결과`
+- 그 다음 참고 시트: `먼저확인`, `자동추천근거`, `개인정보점검`
 
 **제목/안내문 있는 파일 행 합치기**
 
@@ -142,7 +148,8 @@ samples\public_admin
   - `samples\public_admin\messy_headers\department_status_a.csv`
   - `samples\public_admin\messy_headers\department_status_b.csv`
 - 화면 선택값: 합치기 방향 `행 합치기`
-- 결과에서 볼 시트: `결과`, `자동추천근거`
+- 결과에서 먼저 볼 시트: `결과`
+- 그 다음 참고 시트: `먼저확인`, `자동추천근거`
 
 **직원 명단 열 합치기**
 
@@ -151,7 +158,8 @@ samples\public_admin
   - `samples\public_admin\hr_training_completion.csv`
   - `samples\public_admin\hr_employee_master.csv`
 - 화면 선택값: 합치기 방향 `열 합치기`, 자동 매칭 확인
-- 결과에서 볼 시트: `먼저확인`, `결과`, `자동추천근거`, `확인필요`
+- 결과에서 먼저 볼 시트: `결과`
+- 그 다음 참고 시트: `먼저확인`, `자동추천근거`, `확인필요`
 
 **수당/예산 기준표 열 합치기**
 
@@ -160,7 +168,8 @@ samples\public_admin
   - `samples\public_admin\allowance_budget\payment_requests.csv`
   - `samples\public_admin\allowance_budget\rate_reference.csv`
 - 화면 선택값: 합치기 방향 `열 합치기`, 자동 매칭 확인
-- 결과에서 볼 시트: `결과`, `자동추천근거`, `확인필요`
+- 결과에서 먼저 볼 시트: `결과`
+- 그 다음 참고 시트: `먼저확인`, `자동추천근거`, `확인필요`
 
 **전/후 파일 변경 검증**
 
@@ -169,28 +178,32 @@ samples\public_admin
   - 수정 전: `samples\public_admin\before_after_validation\payment_before.csv`
   - 수정 후: `samples\public_admin\before_after_validation\payment_after.csv`
 - 화면 선택값: 비교 기준열 자동 추천 확인, 필요 시 `컬럼 매칭 수정`
-- 결과에서 볼 시트: `후파일_메모`, `차이목록`, `행비교`, `컬럼비교`, `차이행만`
+- 결과에서 먼저 볼 시트: `후파일_메모`
+- 그 다음 참고 시트: `먼저확인`, `차이목록`, `행비교`, `컬럼비교`, `차이행만`
 
 **부서/월별 예산 피벗**
 
 - 누를 기능: `6. 피벗 요약표 만들기`
 - 선택할 파일: `samples\public_admin\pivot_summary\budget_execution.csv`
 - 화면 선택값: 행 기준 `부서`, 열 기준 `월`, 값 열 `금액`, 집계 방식 `합계`
-- 결과에서 볼 시트: `피벗요약`, `상위목록`, `기준설명`, `원본`
+- 결과에서 먼저 볼 시트: `피벗요약`
+- 그 다음 참고 시트: `먼저확인`, `상위목록`, `기준설명`, `원본`
 
 **상태별 처리 건수 피벗**
 
 - 누를 기능: `6. 피벗 요약표 만들기`
 - 선택할 파일: `samples\public_admin\pivot_summary\budget_execution.csv`
 - 화면 선택값: 행 기준 `상태`, 열 기준 `(선택 안 함)`, 값 열 `(행 개수)`, 집계 방식 `건수`
-- 결과에서 볼 시트: `피벗요약`, `상위목록`, `기준설명`
+- 결과에서 먼저 볼 시트: `피벗요약`
+- 그 다음 참고 시트: `먼저확인`, `상위목록`, `기준설명`, `원본`
 
 **월별 가로표 정리 확인**
 
 - 누를 기능: `2. 엑셀 파일 정리하기`
 - 선택할 파일: `samples\public_admin\monthly_budget_wide.csv`
 - 화면 선택값: 파일 1개 선택
-- 결과에서 볼 시트: `결과`, `처리요약`
+- 결과에서 먼저 볼 시트: `결과`
+- 그 다음 참고 시트: `먼저확인`, `처리요약`
 
 월별 가로표를 세로형 자료로 바꾸는 기능은 현재 exe 첫 화면의 1~6번 버튼에는 넣지 않았고, CLI의 `horizontal` 명령으로만 제공합니다.
 

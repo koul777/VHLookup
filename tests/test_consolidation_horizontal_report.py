@@ -172,8 +172,9 @@ def test_report_writer_creates_expected_sheets(tmp_path):
     sheets = pd.read_excel(output, sheet_name=None)
 
     assert set(sheets) == {SHEET_GUIDE, SHEET_RESULT, SHEET_ISSUES, SHEET_SUMMARY, SHEET_AUTO_EVIDENCE, SHEET_PRIVACY}
+    assert list(sheets)[0] == SHEET_RESULT
     assert sheets[SHEET_RESULT].loc[0, "성명"] == "홍길동"
-    assert sheets[SHEET_GUIDE].loc[0, "확인 유형"] == "처리 결과"
+    assert sheets[SHEET_GUIDE].loc[0, "먼저 볼 내용"] == "업무 결과"
     assert sheets[SHEET_AUTO_EVIDENCE].loc[0, "역할"] == "키 컬럼"
     assert sheets[SHEET_PRIVACY].loc[0, "컬럼명"] == "성명"
 

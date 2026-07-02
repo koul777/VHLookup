@@ -352,8 +352,8 @@ class WorkbookDiffReportWriter:
         output_path = Path(path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-            self._guide_frame(result).to_excel(writer, sheet_name="먼저확인", index=False)
             result.after_frame.to_excel(writer, sheet_name="후파일_메모", index=False)
+            self._guide_frame(result).to_excel(writer, sheet_name="먼저확인", index=False)
             self._frame_or_empty(result.diff_frame, ["상태", "비교 기준", "컬럼명", "전 값", "후 값", "후 파일 셀"]).to_excel(
                 writer, sheet_name="차이목록", index=False
             )
@@ -377,19 +377,28 @@ class WorkbookDiffReportWriter:
         return pd.DataFrame(
             [
                 {
-                    "확인 항목": "비교 기준",
-                    "값": result.summary.get("compare_basis", ""),
-                    "보는 방법": "키 컬럼이 잡히면 키 기준, 아니면 행 순서 기준으로 비교합니다.",
+                    "먼저 볼 내용": "변경 표시된 후 파일",
+                    "현재 결과": f"{result.summary.get('changed_cell_count', 0)}개 셀 변경",
+                    "바로 할 일": "첫 번째 `후파일_메모` 시트에서 색칠된 셀과 메모를 확인하세요.",
+                    "관련 시트": "후파일_메모",
                 },
                 {
-                    "확인 항목": "값이 다른 셀",
-                    "값": result.summary.get("changed_cell_count", 0),
-                    "보는 방법": "후파일_메모 시트에서 노란색 셀의 메모를 확인하세요.",
+                    "먼저 볼 내용": "비교 기준",
+                    "현재 결과": result.summary.get("compare_basis", ""),
+                    "바로 할 일": "기준열 자동 추천이 맞는지 확인하세요.",
+                    "관련 시트": "점검요약",
                 },
                 {
-                    "확인 항목": "행/컬럼 차이",
-                    "값": result.summary.get("missing_row_count", 0) + result.summary.get("added_row_count", 0),
-                    "보는 방법": "행비교와 컬럼비교 시트에서 추가/누락을 확인하세요.",
+                    "먼저 볼 내용": "행 추가/누락",
+                    "현재 결과": f"{result.summary.get('missing_row_count', 0) + result.summary.get('added_row_count', 0)}건",
+                    "바로 할 일": "후 파일에 새로 생기거나 빠진 행을 확인하세요.",
+                    "관련 시트": "행비교",
+                },
+                {
+                    "먼저 볼 내용": "컬럼 추가/누락",
+                    "현재 결과": f"{result.summary.get('before_only_column_count', 0) + result.summary.get('after_only_column_count', 0)}건",
+                    "바로 할 일": "전/후 파일의 컬럼 구성이 달라진 부분을 확인하세요.",
+                    "관련 시트": "컬럼비교",
                 },
             ]
         )

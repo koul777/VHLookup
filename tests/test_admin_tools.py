@@ -1,4 +1,5 @@
 import pandas as pd
+from openpyxl import load_workbook
 
 from vhlookup_core.admin_tools import AdminWorkbookTools
 from vhlookup_core.report import ReportWriter
@@ -50,9 +51,13 @@ def test_admin_split_workbook_infers_department_column(tmp_path):
 
     split_result = tools.write_split_workbook(source, output)
     sheets = pd.read_excel(output, sheet_name=None)
+    workbook = load_workbook(output)
+    first_sheet = workbook[workbook.sheetnames[0]]
 
     assert split_result.split_column == "Department"
     assert {"먼저확인", "전체", "IT", "Sales"} <= set(sheets)
+    assert workbook.sheetnames[0] == "IT"
+    assert first_sheet["B1"].comment is not None
     assert len(sheets["IT"]) == 2
 
 
@@ -96,9 +101,12 @@ def test_pivot_summary_builds_cross_tab_and_workbook(tmp_path):
 
     result = tools.write_pivot_workbook(source, output, row_column="부서", column_column="월", value_column="금액", aggregation="합계")
     sheets = pd.read_excel(output, sheet_name=None)
+    workbook = load_workbook(output)
 
     assert result.row_column == "부서"
     assert {"먼저확인", "피벗요약", "상위목록", "기준설명", "원본"} <= set(sheets)
+    assert workbook.sheetnames[0] == "피벗요약"
+    assert workbook["피벗요약"]["A1"].comment is not None
     assert sheets["피벗요약"].set_index("부서").loc["예산", "합계"] == 250
 
 

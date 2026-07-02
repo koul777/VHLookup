@@ -32,6 +32,7 @@ def test_workbook_diff_writes_comments_on_changed_after_cells(tmp_path):
     memo_sheet = workbook["후파일_메모"]
 
     assert result.summary["changed_cell_count"] == 1
+    assert workbook.sheetnames[0] == "후파일_메모"
     assert sheets["차이목록"].loc[0, "컬럼명"] == "금액"
     assert "차이행만" in sheets
     assert sheets["차이행만"].loc[0, "후 파일 행"] == 2
