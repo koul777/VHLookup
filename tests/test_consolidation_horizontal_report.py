@@ -19,6 +19,8 @@ from vhlookup_core.privacy import PrivacyScanner
 
 
 SAMPLES = Path("samples/public_admin")
+MERGE_SAMPLES = SAMPLES / "03_merge_files"
+HR_SAMPLES = MERGE_SAMPLES / "column_merge_hr_training"
 
 
 def test_consolidation_folder_merges_files_with_different_headers(tmp_path):
@@ -123,8 +125,8 @@ def test_column_merge_attaches_columns_by_common_key(tmp_path):
 
 def test_column_merge_marks_unmatched_attached_cells_with_comment(tmp_path):
     output = tmp_path / "result.xlsx"
-    file_one = SAMPLES / "hr_employee_master.csv"
-    file_two = SAMPLES / "hr_training_completion.csv"
+    file_one = HR_SAMPLES / "hr_employee_master.csv"
+    file_two = HR_SAMPLES / "hr_training_completion.csv"
 
     result = ConsolidationEngine().merge_files_by_columns([file_one, file_two])
     ReportWriter().write_xlsx(result, output)
@@ -153,7 +155,7 @@ def test_column_merge_marks_unmatched_attached_cells_with_comment(tmp_path):
 def test_report_writer_extracts_error_rows(tmp_path):
     output = tmp_path / "result.xlsx"
     result = ConsolidationEngine().consolidate_folder(
-        "samples/public_admin/submission_errors",
+        MERGE_SAMPLES / "row_merge_submission_errors",
         template="school_submission_consolidation",
     )
 
@@ -168,7 +170,7 @@ def test_report_writer_extracts_error_rows(tmp_path):
 def test_report_writer_can_leave_merge_result_unmarked(tmp_path):
     output = tmp_path / "result.xlsx"
     result = ConsolidationEngine().consolidate_folder(
-        "samples/public_admin/submission_errors",
+        MERGE_SAMPLES / "row_merge_submission_errors",
         template="school_submission_consolidation",
     )
 

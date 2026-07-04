@@ -116,7 +116,7 @@ dist\VHLookupLocal_pivot.exe
 
 ## 샘플 데이터
 
-샘플은 프로그램 안에서 버튼으로 만들지 않고 파일로 제공합니다.
+샘플은 프로그램 안에서 새로 만들지 않고 파일로 제공합니다. 폴더는 실행 화면의 1~5번 기능 순서에 맞춰 정리되어 있습니다.
 
 ```text
 samples\public_admin
@@ -124,14 +124,29 @@ samples\public_admin
 
 샘플 CSV는 Windows Excel에서 더블클릭으로 열어도 한글이 깨지지 않도록 UTF-8 BOM 형식으로 저장했습니다.
 
-### 샘플별 체험 방법
+### 폴더 구조
 
-좁은 화면에서도 보기 쉽도록 샘플별로 나누어 적었습니다.
+```text
+samples\public_admin
+├─ 01_privacy_masking
+├─ 02_split_sheets
+├─ 03_merge_files
+│  ├─ row_merge_school_submissions
+│  ├─ row_merge_messy_headers
+│  ├─ row_merge_submission_errors
+│  ├─ column_merge_hr_training
+│  └─ column_merge_allowance_budget
+├─ 04_before_after_validation
+├─ 05_pivot_summary
+└─ 90_extra_cli_samples
+```
+
+### 메뉴별 샘플
 
 **개인정보 마스킹**
 
 - 누를 기능: `1. 개인정보 마스킹`
-- 선택할 파일: `samples\public_admin\privacy_masking\citizen_service_requests.csv`
+- 선택할 파일: `samples\public_admin\01_privacy_masking\citizen_service_requests.csv`
 - 결과에서 먼저 볼 시트: `마스킹결과`
 - 그 다음 참고 시트: `먼저확인`, `마스킹내역`
 - 확인 포인트: 이름, 주민등록번호, 연락처, 이메일, 계좌번호, 주소가 가려졌는지 확인
@@ -139,7 +154,7 @@ samples\public_admin
 **부서별 시트 나누기**
 
 - 누를 기능: `2. 분류별 시트 나누기`
-- 선택할 파일: `samples\public_admin\pivot_summary\budget_execution.csv`
+- 선택할 파일: `samples\public_admin\02_split_sheets\budget_execution.csv`
 - 화면 선택값: 분류 기준열 `부서`
 - 결과에서 먼저 볼 시트: `총무과`, `예산과`, `복지과`, `민원과` 같은 분류별 시트
 - 그 다음 참고 시트: `전체`, `먼저확인`
@@ -148,8 +163,8 @@ samples\public_admin
 
 - 누를 기능: `3. 엑셀/CSV 파일 여러 개 합치기`
 - 선택할 파일:
-  - `samples\public_admin\school_submissions\gangbuk_school.csv`
-  - `samples\public_admin\school_submissions\gangnam_school.csv`
+  - `samples\public_admin\03_merge_files\row_merge_school_submissions\gangbuk_school.csv`
+  - `samples\public_admin\03_merge_files\row_merge_school_submissions\gangnam_school.csv`
 - 화면 선택값: 합치기 방향 `행 합치기`
 - 결과에서 먼저 볼 시트: `결과`
 - 그 다음 참고 시트: `먼저확인`, `자동추천근거`, `개인정보점검`
@@ -158,8 +173,8 @@ samples\public_admin
 
 - 누를 기능: `3. 엑셀/CSV 파일 여러 개 합치기`
 - 선택할 파일:
-  - `samples\public_admin\messy_headers\department_status_a.csv`
-  - `samples\public_admin\messy_headers\department_status_b.csv`
+  - `samples\public_admin\03_merge_files\row_merge_messy_headers\department_status_a.csv`
+  - `samples\public_admin\03_merge_files\row_merge_messy_headers\department_status_b.csv`
 - 화면 선택값: 합치기 방향 `행 합치기`
 - 결과에서 먼저 볼 시트: `결과`
 - 그 다음 참고 시트: `먼저확인`, `자동추천근거`
@@ -168,8 +183,8 @@ samples\public_admin
 
 - 누를 기능: `3. 엑셀/CSV 파일 여러 개 합치기`
 - 선택할 파일:
-  - `samples\public_admin\hr_training_completion.csv`
-  - `samples\public_admin\hr_employee_master.csv`
+  - `samples\public_admin\03_merge_files\column_merge_hr_training\hr_training_completion.csv`
+  - `samples\public_admin\03_merge_files\column_merge_hr_training\hr_employee_master.csv`
 - 화면 선택값: 합치기 방향 `열 합치기`, 자동 매칭 확인
 - 결과에서 먼저 볼 시트: `결과`
 - 그 다음 참고 시트: `먼저확인`, `자동추천근거`, `확인필요`
@@ -178,8 +193,8 @@ samples\public_admin
 
 - 누를 기능: `3. 엑셀/CSV 파일 여러 개 합치기`
 - 선택할 파일:
-  - `samples\public_admin\allowance_budget\payment_requests.csv`
-  - `samples\public_admin\allowance_budget\rate_reference.csv`
+  - `samples\public_admin\03_merge_files\column_merge_allowance_budget\payment_requests.csv`
+  - `samples\public_admin\03_merge_files\column_merge_allowance_budget\rate_reference.csv`
 - 화면 선택값: 합치기 방향 `열 합치기`, 자동 매칭 확인
 - 결과에서 먼저 볼 시트: `결과`
 - 그 다음 참고 시트: `먼저확인`, `자동추천근거`, `확인필요`
@@ -188,8 +203,8 @@ samples\public_admin
 
 - 누를 기능: `4. 전/후 파일 검증`
 - 선택할 파일:
-  - 수정 전: `samples\public_admin\before_after_validation\payment_before.csv`
-  - 수정 후: `samples\public_admin\before_after_validation\payment_after.csv`
+  - 수정 전: `samples\public_admin\04_before_after_validation\payment_before.csv`
+  - 수정 후: `samples\public_admin\04_before_after_validation\payment_after.csv`
 - 화면 선택값: 비교 기준열 자동 추천 확인, 필요 시 `컬럼 매칭 수정`
 - 결과에서 먼저 볼 시트: `후파일_메모`
 - 그 다음 참고 시트: `먼저확인`, `차이목록`, `행비교`, `컬럼비교`, `차이행만`, `빠진행`
@@ -197,7 +212,7 @@ samples\public_admin
 **부서/월별 예산 피벗**
 
 - 누를 기능: `5. 피벗 요약표 만들기`
-- 선택할 파일: `samples\public_admin\pivot_summary\budget_execution.csv`
+- 선택할 파일: `samples\public_admin\05_pivot_summary\budget_execution.csv`
 - 화면 선택값: 행 기준 `부서`, 열 기준 `월`, 값 열 `금액`, 집계 방식 `합계`
 - 결과에서 먼저 볼 시트: `피벗요약`
 - 그 다음 참고 시트: `먼저확인`, `상위목록`, `기준설명`, `원본`
@@ -205,12 +220,12 @@ samples\public_admin
 **상태별 처리 건수 피벗**
 
 - 누를 기능: `5. 피벗 요약표 만들기`
-- 선택할 파일: `samples\public_admin\pivot_summary\budget_execution.csv`
+- 선택할 파일: `samples\public_admin\05_pivot_summary\budget_execution.csv`
 - 화면 선택값: 행 기준 `상태`, 열 기준 `(선택 안 함)`, 값 열 `(행 개수)`, 집계 방식 `건수`
 - 결과에서 먼저 볼 시트: `피벗요약`
 - 그 다음 참고 시트: `먼저확인`, `상위목록`, `기준설명`, `원본`
 
-월별 가로표를 세로형 자료로 바꾸는 기능은 현재 exe 첫 화면의 1~5번 버튼에는 넣지 않았고, CLI의 `horizontal` 명령으로만 제공합니다.
+월별 가로표 변환과 제출대상 누락 확인처럼 현재 첫 화면 1~5번 버튼 밖에 있는 샘플은 `samples\public_admin\90_extra_cli_samples`에 따로 뒀습니다.
 
 샘플 종류와 확인 포인트는 [docs/sample_catalog.md](docs/sample_catalog.md)에 더 자세히 정리되어 있습니다.
 

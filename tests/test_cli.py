@@ -9,6 +9,9 @@ from vhlookup_core.inspection_report import InspectionReportWriter
 
 
 SAMPLES = Path("samples/public_admin")
+MERGE_SAMPLES = SAMPLES / "03_merge_files"
+HR_SAMPLES = MERGE_SAMPLES / "column_merge_hr_training"
+EXTRA_SAMPLES = SAMPLES / "90_extra_cli_samples"
 
 
 def test_cli_consolidate_generates_review_ready_workbook(tmp_path):
@@ -18,7 +21,7 @@ def test_cli_consolidate_generates_review_ready_workbook(tmp_path):
         [
             "consolidate",
             "--folder",
-            str(SAMPLES / "school_submissions"),
+            str(MERGE_SAMPLES / "row_merge_school_submissions"),
             "--template",
             "school_submission_consolidation",
             "--out",
@@ -50,7 +53,7 @@ def test_cli_inspect_generates_preflight_workbook(tmp_path):
         [
             "inspect",
             "--path",
-            str(SAMPLES / "school_submissions"),
+            str(MERGE_SAMPLES / "row_merge_school_submissions"),
             "--template",
             "school_submission_consolidation",
             "--out",
@@ -118,9 +121,9 @@ def test_cli_lookup_auto_matches_without_manual_columns(tmp_path):
         [
             "lookup",
             "--reference",
-            str(SAMPLES / "hr_employee_master.csv"),
+            str(HR_SAMPLES / "hr_employee_master.csv"),
             "--target",
-            str(SAMPLES / "hr_training_completion.csv"),
+            str(HR_SAMPLES / "hr_training_completion.csv"),
             "--out",
             str(output),
         ]
@@ -140,9 +143,9 @@ def test_cli_reconcile_and_horizontal_workflows(tmp_path):
         [
             "reconcile",
             "--reference",
-            str(SAMPLES / "submission_reconciliation" / "expected_submitters.csv"),
+            str(EXTRA_SAMPLES / "submission_reconciliation" / "expected_submitters.csv"),
             "--target",
-            str(SAMPLES / "submission_reconciliation" / "received_submitters.csv"),
+            str(EXTRA_SAMPLES / "submission_reconciliation" / "received_submitters.csv"),
             "--key",
             "기관코드",
             "--target-key",
@@ -155,7 +158,7 @@ def test_cli_reconcile_and_horizontal_workflows(tmp_path):
         [
             "horizontal",
             "--file",
-            str(SAMPLES / "monthly_budget_wide.csv"),
+            str(EXTRA_SAMPLES / "horizontal_table" / "monthly_budget_wide.csv"),
             "--out",
             str(horizontal_out),
         ]

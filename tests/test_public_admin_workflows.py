@@ -11,6 +11,10 @@ from vhlookup_core.templates import get_template, templates_for_mode
 
 
 SAMPLES = Path("samples/public_admin")
+MERGE_SAMPLES = SAMPLES / "03_merge_files"
+HR_SAMPLES = MERGE_SAMPLES / "column_merge_hr_training"
+ALLOWANCE_SAMPLES = MERGE_SAMPLES / "column_merge_allowance_budget"
+EXTRA_SAMPLES = SAMPLES / "90_extra_cli_samples"
 
 
 def _load_table(path: Path):
@@ -33,7 +37,7 @@ def test_public_admin_templates_cover_each_primary_mode():
 
 def test_school_submission_sample_consolidates_with_template():
     result = ConsolidationEngine().consolidate_folder(
-        SAMPLES / "school_submissions",
+        MERGE_SAMPLES / "row_merge_school_submissions",
         template="school_submission_consolidation",
     )
 
@@ -59,7 +63,7 @@ def test_school_submission_sample_consolidates_with_template():
 
 def test_submission_error_sample_surfaces_admin_validation_issues():
     result = ConsolidationEngine().consolidate_folder(
-        SAMPLES / "submission_errors",
+        MERGE_SAMPLES / "row_merge_submission_errors",
         template="school_submission_consolidation",
     )
 
@@ -69,8 +73,8 @@ def test_submission_error_sample_surfaces_admin_validation_issues():
 
 
 def test_training_lookup_sample_flags_numeric_id_format_mismatch():
-    reference = _load_table(SAMPLES / "hr_employee_master.csv")
-    target = _load_table(SAMPLES / "hr_training_completion.csv")
+    reference = _load_table(HR_SAMPLES / "hr_employee_master.csv")
+    target = _load_table(HR_SAMPLES / "hr_training_completion.csv")
 
     result = MergeEngine().merge_lookup(
         reference,
@@ -86,8 +90,8 @@ def test_training_lookup_sample_flags_numeric_id_format_mismatch():
 
 
 def test_lookup_plan_auto_matches_columns_without_examples_or_manual_keys():
-    reference = _load_table(SAMPLES / "hr_employee_master.csv")
-    target = _load_table(SAMPLES / "hr_training_completion.csv")
+    reference = _load_table(HR_SAMPLES / "hr_employee_master.csv")
+    target = _load_table(HR_SAMPLES / "hr_training_completion.csv")
 
     plan = AutoLookupPlanner().infer_lookup_plan(reference, target)
 
@@ -111,8 +115,8 @@ def test_lookup_plan_auto_matches_columns_without_examples_or_manual_keys():
 
 
 def test_reconciliation_finds_missing_public_admin_rows():
-    reference = _load_table(SAMPLES / "hr_employee_master.csv")
-    target = _load_table(SAMPLES / "hr_training_completion.csv")
+    reference = _load_table(HR_SAMPLES / "hr_employee_master.csv")
+    target = _load_table(HR_SAMPLES / "hr_training_completion.csv")
 
     result = ReconciliationEngine().compare_lists(
         reference,
@@ -126,8 +130,8 @@ def test_reconciliation_finds_missing_public_admin_rows():
 
 
 def test_reconciliation_auto_plan_reports_key_evidence_only():
-    reference = _load_table(SAMPLES / "hr_employee_master.csv")
-    target = _load_table(SAMPLES / "hr_training_completion.csv")
+    reference = _load_table(HR_SAMPLES / "hr_employee_master.csv")
+    target = _load_table(HR_SAMPLES / "hr_training_completion.csv")
 
     plan = AutoLookupPlanner().infer_reconciliation_key_spec(reference, target)
 
@@ -139,8 +143,8 @@ def test_reconciliation_auto_plan_reports_key_evidence_only():
 
 
 def test_allowance_budget_sample_supports_composite_key_lookup():
-    reference = _load_table(SAMPLES / "allowance_budget" / "rate_reference.csv")
-    target = _load_table(SAMPLES / "allowance_budget" / "payment_requests.csv")
+    reference = _load_table(ALLOWANCE_SAMPLES / "rate_reference.csv")
+    target = _load_table(ALLOWANCE_SAMPLES / "payment_requests.csv")
 
     plan = AutoLookupPlanner().infer_lookup_plan(
         reference,
@@ -161,10 +165,10 @@ def test_allowance_budget_sample_supports_composite_key_lookup():
 
 def test_column_merge_samples_use_loose_numeric_and_composite_keys():
     training = ConsolidationEngine().merge_files_by_columns(
-        [SAMPLES / "hr_training_completion.csv", SAMPLES / "hr_employee_master.csv"]
+        [HR_SAMPLES / "hr_training_completion.csv", HR_SAMPLES / "hr_employee_master.csv"]
     )
     allowance = ConsolidationEngine().merge_files_by_columns(
-        [SAMPLES / "allowance_budget" / "payment_requests.csv", SAMPLES / "allowance_budget" / "rate_reference.csv"]
+        [ALLOWANCE_SAMPLES / "payment_requests.csv", ALLOWANCE_SAMPLES / "rate_reference.csv"]
     )
 
     assert training.result_frame.loc[0, "부서"] == "총무과"
@@ -179,8 +183,8 @@ def test_column_merge_samples_use_loose_numeric_and_composite_keys():
 
 
 def test_submission_reconciliation_sample_finds_missing_and_unknown_submitters():
-    expected = _load_table(SAMPLES / "submission_reconciliation" / "expected_submitters.csv")
-    received = _load_table(SAMPLES / "submission_reconciliation" / "received_submitters.csv")
+    expected = _load_table(EXTRA_SAMPLES / "submission_reconciliation" / "expected_submitters.csv")
+    received = _load_table(EXTRA_SAMPLES / "submission_reconciliation" / "received_submitters.csv")
 
     plan = AutoLookupPlanner().infer_reconciliation_key_spec(
         expected,
@@ -202,7 +206,7 @@ def test_submission_reconciliation_sample_finds_missing_and_unknown_submitters()
 
 def test_messy_header_department_status_sample_consolidates():
     result = ConsolidationEngine().consolidate_folder(
-        SAMPLES / "messy_headers",
+        MERGE_SAMPLES / "row_merge_messy_headers",
         template="department_status_consolidation",
     )
 

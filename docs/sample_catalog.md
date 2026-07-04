@@ -1,6 +1,15 @@
-# 샘플 데이터 카탈로그
+﻿# 샘플 데이터 카탈로그
 
-`samples/public_admin` 아래 샘플은 공공기관 행정직이 바로 눌러볼 수 있도록 업무 유형별로 나뉘어 있습니다.
+`samples/public_admin` 아래 샘플은 공공기관 행정직이 바로 눌러볼 수 있도록 실행 화면의 1~5번 기능 순서로 나뉘어 있습니다.
+
+기본 폴더:
+
+- `01_privacy_masking`: 1번 개인정보 마스킹
+- `02_split_sheets`: 2번 분류별 시트 나누기
+- `03_merge_files`: 3번 행/열 합치기
+- `04_before_after_validation`: 4번 전/후 파일 검증
+- `05_pivot_summary`: 5번 피벗 요약표 만들기
+- `90_extra_cli_samples`: 첫 화면 밖의 추가 CLI 샘플
 
 전체 데모 실행:
 
@@ -30,8 +39,8 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/school_submissions/gangbuk_school.csv`
-- `samples/public_admin/school_submissions/gangnam_school.csv`
+- `samples/public_admin/03_merge_files/row_merge_school_submissions/gangbuk_school.csv`
+- `samples/public_admin/03_merge_files/row_merge_school_submissions/gangnam_school.csv`
 
 결과:
 
@@ -47,8 +56,8 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/submission_errors/bad_school_a.csv`
-- `samples/public_admin/submission_errors/bad_school_b.csv`
+- `samples/public_admin/03_merge_files/row_merge_submission_errors/bad_school_a.csv`
+- `samples/public_admin/03_merge_files/row_merge_submission_errors/bad_school_b.csv`
 
 결과:
 
@@ -66,8 +75,8 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/hr_employee_master.csv`
-- `samples/public_admin/hr_training_completion.csv`
+- `samples/public_admin/03_merge_files/column_merge_hr_training/hr_employee_master.csv`
+- `samples/public_admin/03_merge_files/column_merge_hr_training/hr_training_completion.csv`
 
 결과:
 
@@ -83,8 +92,8 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/hr_employee_master.csv`
-- `samples/public_admin/hr_training_completion.csv`
+- `samples/public_admin/03_merge_files/column_merge_hr_training/hr_employee_master.csv`
+- `samples/public_admin/03_merge_files/column_merge_hr_training/hr_training_completion.csv`
 
 결과:
 
@@ -100,8 +109,8 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/allowance_budget/rate_reference.csv`
-- `samples/public_admin/allowance_budget/payment_requests.csv`
+- `samples/public_admin/03_merge_files/column_merge_allowance_budget/rate_reference.csv`
+- `samples/public_admin/03_merge_files/column_merge_allowance_budget/payment_requests.csv`
 
 결과:
 
@@ -118,8 +127,8 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/submission_reconciliation/expected_submitters.csv`
-- `samples/public_admin/submission_reconciliation/received_submitters.csv`
+- `samples/public_admin/90_extra_cli_samples/submission_reconciliation/expected_submitters.csv`
+- `samples/public_admin/90_extra_cli_samples/submission_reconciliation/received_submitters.csv`
 
 결과:
 
@@ -134,8 +143,8 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/messy_headers/department_status_a.csv`
-- `samples/public_admin/messy_headers/department_status_b.csv`
+- `samples/public_admin/03_merge_files/row_merge_messy_headers/department_status_a.csv`
+- `samples/public_admin/03_merge_files/row_merge_messy_headers/department_status_b.csv`
 
 결과:
 
@@ -150,7 +159,7 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/monthly_budget_wide.csv`
+- `samples/public_admin/90_extra_cli_samples/horizontal_table/monthly_budget_wide.csv`
 
 결과:
 
@@ -165,8 +174,8 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/before_after_validation/payment_before.csv`
-- `samples/public_admin/before_after_validation/payment_after.csv`
+- `samples/public_admin/04_before_after_validation/payment_before.csv`
+- `samples/public_admin/04_before_after_validation/payment_after.csv`
 
 확인 포인트:
 
@@ -178,7 +187,7 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/pivot_summary/budget_execution.csv`
+- `samples/public_admin/05_pivot_summary/budget_execution.csv`
 
 추천 선택:
 

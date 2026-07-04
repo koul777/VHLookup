@@ -169,21 +169,24 @@ def main() -> int:
         old_output.unlink()
     writer = ReportWriter()
     write_demo_tour(OUTPUT)
+    merge_samples = SAMPLES / "03_merge_files"
+    hr_samples = merge_samples / "column_merge_hr_training"
+    extra_samples = SAMPLES / "90_extra_cli_samples"
 
     consolidated = ConsolidationEngine().consolidate_folder(
-        SAMPLES / "school_submissions",
+        merge_samples / "row_merge_school_submissions",
         template="school_submission_consolidation",
     )
     writer.write_xlsx(consolidated, OUTPUT / "01_제출자료_수합결과.xlsx")
 
     invalid_consolidated = ConsolidationEngine().consolidate_folder(
-        SAMPLES / "submission_errors",
+        merge_samples / "row_merge_submission_errors",
         template="school_submission_consolidation",
     )
     writer.write_xlsx(invalid_consolidated, OUTPUT / "02_오류검증_제출자료.xlsx")
 
-    employee_master = load_table(SAMPLES / "hr_employee_master.csv")
-    training = load_table(SAMPLES / "hr_training_completion.csv")
+    employee_master = load_table(hr_samples / "hr_employee_master.csv")
+    training = load_table(hr_samples / "hr_training_completion.csv")
     auto_plan = AutoLookupPlanner().infer_lookup_plan(employee_master, training)
     lookup = MergeEngine().merge_lookup(
         employee_master,
@@ -204,8 +207,9 @@ def main() -> int:
     writer.write_xlsx(reconciliation, OUTPUT / "04_교육누락자_대조결과.xlsx")
 
     allowance_template = get_template("allowance_budget_lookup")
-    rate_reference = load_table(SAMPLES / "allowance_budget" / "rate_reference.csv")
-    payment_requests = load_table(SAMPLES / "allowance_budget" / "payment_requests.csv")
+    allowance_samples = merge_samples / "column_merge_allowance_budget"
+    rate_reference = load_table(allowance_samples / "rate_reference.csv")
+    payment_requests = load_table(allowance_samples / "payment_requests.csv")
     allowance_plan = AutoLookupPlanner().infer_lookup_plan(
         rate_reference,
         payment_requests,
@@ -222,8 +226,9 @@ def main() -> int:
     attach_auto_summary(allowance, allowance_plan, allowance_template.name)
     writer.write_xlsx(allowance, OUTPUT / "05_수당예산_대조결과.xlsx")
 
-    expected = load_table(SAMPLES / "submission_reconciliation" / "expected_submitters.csv")
-    received = load_table(SAMPLES / "submission_reconciliation" / "received_submitters.csv")
+    submitter_samples = extra_samples / "submission_reconciliation"
+    expected = load_table(submitter_samples / "expected_submitters.csv")
+    received = load_table(submitter_samples / "received_submitters.csv")
     submitter_plan = AutoLookupPlanner().infer_reconciliation_key_spec(
         expected,
         received,
@@ -241,12 +246,12 @@ def main() -> int:
     writer.write_xlsx(submitter_reconciliation, OUTPUT / "06_제출대상_누락확인.xlsx")
 
     department_status = ConsolidationEngine().consolidate_folder(
-        SAMPLES / "messy_headers",
+        merge_samples / "row_merge_messy_headers",
         template="department_status_consolidation",
     )
     writer.write_xlsx(department_status, OUTPUT / "07_부서별현황_수합결과.xlsx")
 
-    monthly = load_table(SAMPLES / "monthly_budget_wide.csv")
+    monthly = load_table(extra_samples / "horizontal_table" / "monthly_budget_wide.csv")
     converted = HorizontalTableEngine().wide_to_long(monthly, id_columns=["기관명", "항목"])
     horizontal = JobResult(
         result_frame=converted,

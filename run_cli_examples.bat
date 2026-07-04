@@ -18,19 +18,19 @@ echo Running CLI examples with public-admin sample data...
 python -m vhlookup_cli.main templates --out "%OUT%\00_templates_cli.xlsx"
 if errorlevel 1 goto fail
 
-python -m vhlookup_cli.main inspect --path samples\public_admin\school_submissions --template school_submission_consolidation --out "%OUT%\00_inspect_cli.xlsx"
+python -m vhlookup_cli.main inspect --path samples\public_admin\03_merge_files\row_merge_school_submissions --template school_submission_consolidation --out "%OUT%\00_inspect_cli.xlsx"
 if errorlevel 1 goto fail
 
-python -m vhlookup_cli.main consolidate --folder samples\public_admin\school_submissions --template school_submission_consolidation --out "%OUT%\01_consolidation_cli.xlsx"
+python -m vhlookup_cli.main consolidate --folder samples\public_admin\03_merge_files\row_merge_school_submissions --template school_submission_consolidation --out "%OUT%\01_consolidation_cli.xlsx"
 if errorlevel 1 goto fail
 
-python -m vhlookup_cli.main lookup --reference samples\public_admin\hr_employee_master.csv --target samples\public_admin\hr_training_completion.csv --out "%OUT%\02_lookup_cli.xlsx"
+python -m vhlookup_cli.main lookup --reference samples\public_admin\03_merge_files\column_merge_hr_training\hr_employee_master.csv --target samples\public_admin\03_merge_files\column_merge_hr_training\hr_training_completion.csv --out "%OUT%\02_lookup_cli.xlsx"
 if errorlevel 1 goto fail
 
-python -m vhlookup_cli.main reconcile --reference samples\public_admin\submission_reconciliation\expected_submitters.csv --target samples\public_admin\submission_reconciliation\received_submitters.csv --reference-label expected --target-label received --out "%OUT%\03_reconcile_cli.xlsx"
+python -m vhlookup_cli.main reconcile --reference samples\public_admin\90_extra_cli_samples\submission_reconciliation\expected_submitters.csv --target samples\public_admin\90_extra_cli_samples\submission_reconciliation\received_submitters.csv --reference-label expected --target-label received --out "%OUT%\03_reconcile_cli.xlsx"
 if errorlevel 1 goto fail
 
-python -m vhlookup_cli.main horizontal --file samples\public_admin\monthly_budget_wide.csv --out "%OUT%\04_horizontal_cli.xlsx"
+python -m vhlookup_cli.main horizontal --file samples\public_admin\90_extra_cli_samples\horizontal_table\monthly_budget_wide.csv --out "%OUT%\04_horizontal_cli.xlsx"
 if errorlevel 1 goto fail
 
 echo.

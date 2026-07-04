@@ -4,9 +4,28 @@
 
 CSV 파일은 Windows Excel에서 더블클릭으로 열어도 한글이 깨지지 않도록 UTF-8 BOM 형식으로 저장했습니다.
 
-## 개인정보 마스킹 샘플
+## 폴더 구조
 
-`privacy_masking/citizen_service_requests.csv`를 사용합니다.
+실행 화면의 1~5번 기능 순서에 맞춰 샘플 폴더를 나눴습니다.
+
+```text
+samples/public_admin
+├─ 01_privacy_masking
+├─ 02_split_sheets
+├─ 03_merge_files
+│  ├─ row_merge_school_submissions
+│  ├─ row_merge_messy_headers
+│  ├─ row_merge_submission_errors
+│  ├─ column_merge_hr_training
+│  └─ column_merge_allowance_budget
+├─ 04_before_after_validation
+├─ 05_pivot_summary
+└─ 90_extra_cli_samples
+```
+
+## 1. 개인정보 마스킹
+
+`01_privacy_masking/citizen_service_requests.csv`를 사용합니다.
 
 확인할 수 있는 흐름:
 - 성명 가운데 글자 마스킹
@@ -16,78 +35,38 @@ CSV 파일은 Windows Excel에서 더블클릭으로 열어도 한글이 깨지�
 - 계좌번호 가운데 숫자 마스킹
 - 주소 상세 위치 마스킹
 
-## 1. 학교/부서 제출자료 수합
+## 2. 분류별 시트 나누기
 
-앱에서 `학교/부서 제출자료 수합`을 선택하고 `samples/public_admin/school_submissions` 폴더를 고릅니다.
+`02_split_sheets/budget_execution.csv`를 사용합니다.
 
-예상 결과:
-- 서로 다른 헤더명과 제목 행을 자동 처리합니다.
-- `기관명`, `기관코드`, `담당자`, `연락처`, `제출일`, `사업명`, `항목`, `금액`, `비고` 기준으로 통합됩니다.
-- 원본 파일명, 시트명, 원본 행 번호가 보존됩니다.
-- `개인정보점검` 시트에서 담당자/연락처 컬럼과 전화번호 패턴을 값 노출 없이 확인합니다.
-
-## 2. 직원 교육이수 명단 대조
-
-`hr_employee_master.csv`를 기준 파일로, `hr_training_completion.csv`를 대상 파일로 선택합니다.
-
-키 컬럼:
-- `사번`
-
-가져올 컬럼:
-- `성명`, `부서`, `직급`, `소속`
-
-예상 결과:
-- `사번`과 `직원번호`를 자동으로 연결합니다.
-- 성명 컬럼은 `개인정보점검` 시트에 유형과 건수만 표시됩니다.
-
-## 3. 빠진 사람/누락 제출자 찾기
-
-같은 두 HR 샘플을 `빠진 사람/누락자료 찾기`에서 비교하면 교육이수 명단에 없는 기준명단 대상자를 확인할 수 있습니다.
-
-## 4. 월별 가로표 세로 변환
-
-`monthly_budget_wide.csv`를 선택하고 행 기준 컬럼을 `기관명, 항목`으로 두면 월별 가로표가 세로형으로 변환됩니다.
-
-## 5. 오류 검증용 제출자료
-
-`submission_errors` 폴더는 일부러 잘못된 값을 포함합니다.
-
-확인할 수 있는 오류:
-- 필수값 누락
-- 숫자 오류
-- 날짜 오류
-- 중복 제출 의심
-
-## 6. 수당/예산 기준표 대조
-
-`allowance_budget/rate_reference.csv`와 `allowance_budget/payment_requests.csv`를 사용합니다.
+추천 선택:
+- 분류 기준열: `부서`
 
 확인할 수 있는 흐름:
-- 복합 키 `사번 + 지급월`
-- `직원번호`와 `사번` 자동 매칭
-- 단가, 지급기준, 예산과목 자동 붙이기
-- 기준표에 없는 신청자 리포트
-- 신청자료의 성명 컬럼을 개인정보 점검 대상으로 표시
+- 부서별 시트 자동 생성
+- 전체 원본 시트 보존
 
-## 7. 제출 대상자 누락 확인
+## 3. 엑셀/CSV 파일 여러 개 합치기
 
-`submission_reconciliation/expected_submitters.csv`와 `submission_reconciliation/received_submitters.csv`를 사용합니다.
+행 합치기 샘플:
+- `03_merge_files/row_merge_school_submissions`
+- `03_merge_files/row_merge_messy_headers`
+- `03_merge_files/row_merge_submission_errors`
 
-확인할 수 있는 흐름:
-- 제출 대상인데 제출하지 않은 기관
-- 대상 명단에 없는데 제출한 기관
-
-## 8. 복잡한 제목/안내문 헤더 수합
-
-`messy_headers` 폴더는 제목, 작성일, 안내문이 앞에 붙은 파일입니다.
+열 합치기 샘플:
+- `03_merge_files/column_merge_hr_training`
+- `03_merge_files/column_merge_allowance_budget`
 
 확인할 수 있는 흐름:
-- 실제 헤더 행 자동 탐지
-- `담당 부서`, `소속` 같은 다른 컬럼명을 표준 컬럼으로 통합
+- 제목/안내문이 있는 파일의 헤더 자동 탐지
+- `사번`과 `직원번호`처럼 다른 열 이름 자동 매칭
+- `00125`와 `125`처럼 앞자리 0이 다른 값 비교
+- 붙일 파일에 없는 기준값은 빈 셀에 색과 메모 표시
+- 복합 키 `사번 + 지급월` 기준 열 합치기
 
-## 9. 전/후 파일 검증
+## 4. 전/후 파일 검증
 
-`before_after_validation/payment_before.csv`와 `before_after_validation/payment_after.csv`를 사용합니다.
+`04_before_after_validation/payment_before.csv`와 `04_before_after_validation/payment_after.csv`를 사용합니다.
 
 확인할 수 있는 흐름:
 - 같은 사번의 금액 변경 감지
@@ -95,9 +74,9 @@ CSV 파일은 Windows Excel에서 더블클릭으로 열어도 한글이 깨지�
 - 후 파일에 새로 생긴 행 표시
 - 결과 엑셀의 `후파일_메모` 시트에서 변경 셀 메모 확인
 
-## 10. 피벗 요약표 만들기
+## 5. 피벗 요약표 만들기
 
-`pivot_summary/budget_execution.csv`를 사용합니다.
+`05_pivot_summary/budget_execution.csv`를 사용합니다.
 
 추천 선택:
 - 행 기준: `부서`
@@ -109,3 +88,10 @@ CSV 파일은 Windows Excel에서 더블클릭으로 열어도 한글이 깨지�
 - 부서별/월별 예산 집행 합계
 - 상태별 건수 요약
 - `피벗요약`, `상위목록`, `기준설명`, `원본` 시트 생성
+
+## 추가 CLI 샘플
+
+첫 화면 1~5번 메뉴 밖의 추가 샘플은 `90_extra_cli_samples`에 따로 둡니다.
+
+- `90_extra_cli_samples/submission_reconciliation`: 제출 대상자 누락 확인
+- `90_extra_cli_samples/horizontal_table`: 월별 가로표 세로 변환
