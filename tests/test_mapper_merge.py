@@ -41,6 +41,35 @@ def test_merge_lookup_reports_format_mismatch_and_missing_match():
     assert {issue.issue_type for issue in result.issues} >= {"format_mismatch", "match_failed"}
 
 
+def test_merge_lookup_can_use_loose_numeric_keys():
+    reference = pd.DataFrame(
+        {
+            "사번": ["00123", "00124"],
+            "부서": ["총무", "인사"],
+        }
+    )
+    target = pd.DataFrame(
+        {
+            "직원번호": ["123", "00124"],
+            "성명": ["홍길동", "김영희"],
+        }
+    )
+
+    result = MergeEngine().merge_lookup(
+        reference=reference,
+        target=target,
+        key_spec=KeySpec(
+            reference_key_columns=("사번",),
+            target_key_columns=("직원번호",),
+            normalization="loose_numeric",
+        ),
+        value_columns=["부서"],
+    )
+
+    assert result.result_frame["부서"].tolist() == ["총무", "인사"]
+    assert not result.issues
+
+
 def test_merge_lookup_blocks_duplicate_reference_keys():
     reference = pd.DataFrame(
         {

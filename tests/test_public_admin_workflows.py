@@ -93,6 +93,7 @@ def test_lookup_plan_auto_matches_columns_without_examples_or_manual_keys():
 
     assert plan.key_spec.reference_key_columns == ("사번",)
     assert plan.key_spec.target_columns() == ("직원번호",)
+    assert plan.key_spec.normalization == "loose_numeric"
     assert set(plan.value_columns) == {"성명", "부서", "직급", "소속"}
     assert plan.confidence >= 0.55
     assert plan.evidence_rows
@@ -104,7 +105,9 @@ def test_lookup_plan_auto_matches_columns_without_examples_or_manual_keys():
         value_columns=list(plan.value_columns),
     )
 
+    assert result.result_frame.loc[0, "부서"] == "총무과"
     assert result.result_frame.loc[1, "부서"] == "인사과"
+    assert "match_failed" in {issue.issue_type for issue in result.issues}
 
 
 def test_reconciliation_finds_missing_public_admin_rows():
@@ -130,6 +133,7 @@ def test_reconciliation_auto_plan_reports_key_evidence_only():
 
     assert plan.key_spec.reference_key_columns == ("사번",)
     assert plan.key_spec.target_columns() == ("직원번호",)
+    assert plan.key_spec.normalization == "loose_numeric"
     assert plan.value_columns == ()
     assert {row["역할"] for row in plan.evidence_rows} == {"키 컬럼"}
 
@@ -149,8 +153,29 @@ def test_allowance_budget_sample_supports_composite_key_lookup():
 
     assert plan.key_spec.reference_key_columns == ("사번", "지급월")
     assert plan.key_spec.target_columns() == ("직원번호", "지급월")
+    assert plan.key_spec.normalization == "loose_numeric"
+    assert result.result_frame.loc[0, "단가"] == "50000"
     assert result.result_frame.loc[1, "단가"] == "75000"
-    assert {"format_mismatch", "match_failed"} <= {issue.issue_type for issue in result.issues}
+    assert {issue.issue_type for issue in result.issues} == {"match_failed"}
+
+
+def test_column_merge_samples_use_loose_numeric_and_composite_keys():
+    training = ConsolidationEngine().merge_files_by_columns(
+        [SAMPLES / "hr_training_completion.csv", SAMPLES / "hr_employee_master.csv"]
+    )
+    allowance = ConsolidationEngine().merge_files_by_columns(
+        [SAMPLES / "allowance_budget" / "payment_requests.csv", SAMPLES / "allowance_budget" / "rate_reference.csv"]
+    )
+
+    assert training.result_frame.loc[0, "부서"] == "총무과"
+    assert training.result_frame.loc[1, "부서"] == "인사과"
+    assert allowance.result_frame.loc[0, "단가"] == "50000"
+    assert allowance.result_frame.loc[1, "단가"] == "75000"
+    assert {
+        (row["기준표 컬럼"], row["대상표 컬럼"])
+        for row in allowance.mapping_records
+        if row.get("역할") == "키 컬럼"
+    } == {("사번", "직원번호"), ("지급월", "지급월")}
 
 
 def test_submission_reconciliation_sample_finds_missing_and_unknown_submitters():

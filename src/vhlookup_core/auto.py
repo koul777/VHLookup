@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 
-from vhlookup_core.keys import KeyRecommender
+from vhlookup_core.keys import KeyRecommender, build_key_series
 from vhlookup_core.mapper import ColumnMapper
 from vhlookup_core.models import KeySpec
 from vhlookup_core.normalization import normalize_header
@@ -48,9 +48,16 @@ class AutoLookupPlanner:
                 preferred_reference_key_columns,
                 preferred_target_key_columns,
             )
+            normalization = self.infer_key_normalization(
+                reference,
+                target,
+                preferred_reference_key_columns,
+                target_key_columns,
+            )
             key_spec = KeySpec(
                 reference_key_columns=preferred_reference_key_columns,
                 target_key_columns=target_key_columns,
+                normalization=normalization,
             )
             for reference_column, target_column in zip(preferred_reference_key_columns, target_key_columns):
                 evidence_rows.append(
@@ -69,9 +76,16 @@ class AutoLookupPlanner:
                 raise ValueError("자동으로 키 컬럼 후보를 찾지 못했습니다.")
             best = candidates[0]
             confidence = best.score
+            normalization = self.infer_key_normalization(
+                reference,
+                target,
+                best.reference_columns,
+                best.target_columns,
+            )
             key_spec = KeySpec(
                 reference_key_columns=best.reference_columns,
                 target_key_columns=best.target_columns,
+                normalization=normalization,
             )
             for reference_column, target_column in zip(best.reference_columns, best.target_columns):
                 evidence_rows.append(
@@ -86,7 +100,7 @@ class AutoLookupPlanner:
                 )
             if best.score < 0.55:
                 warnings.append("키 컬럼 자동 추천 신뢰도가 낮습니다. 실행 전 미리보기 확인이 필요합니다.")
-            if best.loose_overlap_score > best.score:
+            if normalization == "loose_numeric":
                 warnings.append("앞자리 0 등 표시 형식이 다른 키 값이 있을 수 있습니다.")
 
         value_columns = self._resolve_value_columns(
@@ -116,6 +130,24 @@ class AutoLookupPlanner:
             evidence_rows=tuple(evidence_rows),
             warnings=tuple(warnings),
         )
+
+    def infer_key_normalization(
+        self,
+        reference: pd.DataFrame,
+        target: pd.DataFrame,
+        reference_key_columns: tuple[str, ...],
+        target_key_columns: tuple[str, ...],
+    ) -> Literal["text", "loose_numeric"]:
+        reference_text = build_key_series(reference, reference_key_columns)
+        target_text = build_key_series(target, target_key_columns)
+        reference_loose = build_key_series(reference, reference_key_columns, normalization="loose_numeric")
+        target_loose = build_key_series(target, target_key_columns, normalization="loose_numeric")
+
+        exact_overlap = len(set(reference_text[reference_text != ""]).intersection(set(target_text[target_text != ""])))
+        loose_overlap = len(set(reference_loose[reference_loose != ""]).intersection(set(target_loose[target_loose != ""])))
+        if loose_overlap > exact_overlap:
+            return "loose_numeric"
+        return "text"
 
     def infer_reconciliation_key_spec(
         self,

@@ -68,3 +68,65 @@ def test_workbook_diff_accepts_user_corrected_column_mapping(tmp_path):
     assert result.summary["changed_cell_count"] == 1
     assert result.diff_frame.loc[0, "전 값"] == "100"
     assert result.diff_frame.loc[0, "후 값"] == "120"
+
+
+def test_workbook_diff_reports_missing_rows_with_original_values(tmp_path):
+    before = tmp_path / "before.xlsx"
+    after = tmp_path / "after.xlsx"
+    output = tmp_path / "diff.xlsx"
+
+    pd.DataFrame(
+        {
+            "사번": ["E001", "E002", "E003"],
+            "성명": ["홍길동", "김영희", "박철수"],
+            "금액": [100000, 150000, 120000],
+        }
+    ).to_excel(before, index=False)
+    pd.DataFrame(
+        {
+            "사번": ["E001", "E002", "E004"],
+            "성명": ["홍길동", "김영희", "최민수"],
+            "금액": [100000, 170000, 130000],
+        }
+    ).to_excel(after, index=False)
+
+    result = WorkbookDiffEngine().compare_files(before, after)
+    WorkbookDiffReportWriter().write_xlsx(result, output)
+    sheets = pd.read_excel(output, sheet_name=None)
+
+    assert result.summary["missing_row_count"] == 1
+    assert result.summary["added_row_count"] == 1
+    assert "빠진행" in sheets
+    assert sheets["빠진행"].loc[0, "비교 기준"] == "E003"
+    assert sheets["빠진행"].loc[0, "성명"] == "박철수"
+    assert "후 파일에 행 없음" in set(sheets["차이목록"]["상태"])
+    assert "전 파일에 없던 행" in set(sheets["차이목록"]["상태"])
+
+
+def test_workbook_diff_auto_maps_renamed_columns_by_data_overlap_and_loose_keys(tmp_path):
+    before = tmp_path / "before.xlsx"
+    after = tmp_path / "after.xlsx"
+
+    pd.DataFrame(
+        {
+            "관리번호": ["001", "002", "003"],
+            "지급액": [100, 200, 300],
+            "담당부서": ["총무", "회계", "민원"],
+        }
+    ).to_excel(before, index=False)
+    pd.DataFrame(
+        {
+            "접수ID": ["1", "002", "004"],
+            "최종지급액": [100, 250, 400],
+            "소속부서": ["총무", "회계", "복지"],
+        }
+    ).to_excel(after, index=False)
+
+    result = WorkbookDiffEngine().compare_files(before, after)
+
+    assert result.summary["compare_basis"] == "키 컬럼: 관리번호"
+    assert result.summary["missing_row_count"] == 1
+    assert result.summary["added_row_count"] == 1
+    assert result.summary["changed_cell_count"] == 1
+    assert result.diff_frame.loc[result.diff_frame["상태"] == "값 다름", "컬럼명"].tolist() == ["지급액"]
+    assert result.row_frame.loc[result.row_frame["비교 기준"] == "3", "상태"].item() == "후 파일에 행 없음"

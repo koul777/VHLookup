@@ -144,3 +144,31 @@ def test_pivot_summary_count_and_invalid_numeric_rows(tmp_path):
     assert sum_totals.loc["A기관", "금액_합계"] == 1000
     assert len(sum_summary.invalid_rows) == 1
     assert sum_summary.invalid_rows.iloc[0]["기관명"] == "A기관"
+
+
+def test_pivot_average_numbers_are_rounded_and_formatted(tmp_path):
+    source = tmp_path / "scores.xlsx"
+    output = tmp_path / "pivot_average.xlsx"
+    pd.DataFrame(
+        {
+            "부서": ["총무", "총무", "예산"],
+            "월": ["1월", "2월", "1월"],
+            "점수": [100, 101, 10 / 3],
+        }
+    ).to_excel(source, index=False)
+
+    tools = AdminWorkbookTools()
+    frame, _metadata = tools.prepare_pivot_source(source)
+    summary = tools.build_pivot_summary(frame, row_column="부서", value_column="점수", aggregation="평균")
+
+    averages = summary.pivot_frame.set_index("부서")
+    assert averages.loc["총무", "점수_평균"] == 100.5
+    assert averages.loc["예산", "점수_평균"] == 3.33
+
+    tools.write_pivot_workbook(source, output, row_column="부서", value_column="점수", aggregation="평균")
+    workbook = load_workbook(output)
+    sheet = workbook["피벗요약"]
+
+    assert sheet["B2"].value == 100.5
+    assert sheet["B2"].number_format == "#,##0.##"
+    assert sheet["B3"].value == 3.33

@@ -10,10 +10,10 @@ from openpyxl.utils import get_column_letter
 
 from vhlookup_core.excel_comments import make_comment
 from vhlookup_core.header import HeaderDetector
-from vhlookup_core.keys import KeyRecommender, build_key_series
+from vhlookup_core.keys import KeyRecommender, build_key_series, duplicate_ratio
 from vhlookup_core.loader import ExcelLoader
 from vhlookup_core.mapper import ColumnMapper
-from vhlookup_core.normalization import display_value, is_blank, normalize_header
+from vhlookup_core.normalization import display_value, is_blank, normalize_header, normalize_key_parts
 from vhlookup_core.sheet import SheetDetector
 
 
@@ -27,6 +27,7 @@ class CellComment:
 
 @dataclass
 class WorkbookDiffResult:
+    before_frame: pd.DataFrame
     after_frame: pd.DataFrame
     diff_frame: pd.DataFrame
     column_frame: pd.DataFrame
@@ -89,12 +90,14 @@ class WorkbookDiffEngine:
         comments: list[CellComment] = []
 
         if resolved_key_columns:
+            key_normalization = self._infer_key_normalization(before_frame, after_aligned, resolved_key_columns)
             self._compare_by_key(
                 before_frame,
                 after_frame,
                 after_aligned,
                 before_to_after,
                 resolved_key_columns,
+                key_normalization,
                 compare_columns,
                 diff_rows,
                 row_rows,
@@ -149,6 +152,7 @@ class WorkbookDiffEngine:
             "after_only_column_count": len(after_only_columns),
         }
         return WorkbookDiffResult(
+            before_frame=before_frame,
             after_frame=after_frame,
             diff_frame=pd.DataFrame(diff_rows),
             column_frame=pd.DataFrame(column_rows),
@@ -159,7 +163,7 @@ class WorkbookDiffEngine:
 
     def suggest_column_mapping(self, before_frame: pd.DataFrame, after_frame: pd.DataFrame) -> dict[str, str]:
         column_mapping = self.mapper.map_columns(list(after_frame.columns), list(before_frame.columns), threshold=0.72)
-        return dict(column_mapping.target_to_source)
+        return self._with_data_overlap_column_mapping(before_frame, after_frame, dict(column_mapping.target_to_source))
 
     def _load_table(self, path: Path, scan_rows: int | str) -> tuple[pd.DataFrame, str]:
         source = self.loader.load(path)
@@ -190,8 +194,8 @@ class WorkbookDiffEngine:
         return ()
 
     def _is_good_key(self, before: pd.Series, after: pd.Series) -> bool:
-        before_values = before.map(display_value)
-        after_values = after.map(display_value)
+        before_values = before.map(lambda value: normalize_key_parts([value], "loose_numeric"))
+        after_values = after.map(lambda value: normalize_key_parts([value], "loose_numeric"))
         before_non_blank = before_values[before_values != ""]
         after_non_blank = after_values[after_values != ""]
         if before_non_blank.empty or after_non_blank.empty:
@@ -201,6 +205,69 @@ class WorkbookDiffEngine:
         overlap = len(set(before_non_blank).intersection(set(after_non_blank)))
         return overlap / max(min(before_non_blank.nunique(), after_non_blank.nunique()), 1) >= 0.5
 
+    def _infer_key_normalization(
+        self,
+        before_frame: pd.DataFrame,
+        after_aligned: pd.DataFrame,
+        key_columns: tuple[str, ...],
+    ) -> str:
+        before_text = build_key_series(before_frame, key_columns)
+        after_text = build_key_series(after_aligned, key_columns)
+        before_loose = build_key_series(before_frame, key_columns, normalization="loose_numeric")
+        after_loose = build_key_series(after_aligned, key_columns, normalization="loose_numeric")
+        exact_overlap = len(set(before_text[before_text != ""]).intersection(set(after_text[after_text != ""])))
+        loose_overlap = len(set(before_loose[before_loose != ""]).intersection(set(after_loose[after_loose != ""])))
+        return "loose_numeric" if loose_overlap > exact_overlap else "text"
+
+    def _with_data_overlap_column_mapping(
+        self,
+        before_frame: pd.DataFrame,
+        after_frame: pd.DataFrame,
+        mapping: dict[str, str],
+    ) -> dict[str, str]:
+        used_after_columns = set(mapping.values())
+        for before_column in before_frame.columns:
+            if before_column in mapping:
+                continue
+            best_after_column = ""
+            best_score = 0.0
+            for after_column in after_frame.columns:
+                if after_column in used_after_columns:
+                    continue
+                score = self._column_data_score(before_frame[before_column], after_frame[after_column])
+                if score > best_score:
+                    best_score = score
+                    best_after_column = str(after_column)
+            if best_after_column and best_score >= 0.75:
+                mapping[str(before_column)] = best_after_column
+                used_after_columns.add(best_after_column)
+        return mapping
+
+    def _column_data_score(self, before: pd.Series, after: pd.Series) -> float:
+        before_text = before.to_frame().apply(lambda row: normalize_key_parts(row.tolist()), axis=1)
+        after_text = after.to_frame().apply(lambda row: normalize_key_parts(row.tolist()), axis=1)
+        before_loose = before.to_frame().apply(lambda row: normalize_key_parts(row.tolist(), "loose_numeric"), axis=1)
+        after_loose = after.to_frame().apply(lambda row: normalize_key_parts(row.tolist(), "loose_numeric"), axis=1)
+
+        before_non_blank = before_text[before_text != ""]
+        after_non_blank = after_text[after_text != ""]
+        before_loose_non_blank = before_loose[before_loose != ""]
+        after_loose_non_blank = after_loose[after_loose != ""]
+        if before_non_blank.empty or after_non_blank.empty:
+            return 0.0
+
+        exact_overlap = len(set(before_non_blank).intersection(set(after_non_blank)))
+        exact_denominator = max(min(before_non_blank.nunique(), after_non_blank.nunique()), 1)
+        loose_overlap = len(set(before_loose_non_blank).intersection(set(after_loose_non_blank)))
+        loose_denominator = max(min(before_loose_non_blank.nunique(), after_loose_non_blank.nunique()), 1)
+        overlap_ratio = max(exact_overlap / exact_denominator, (loose_overlap / loose_denominator) * 0.92)
+        completeness = min(
+            len(before_non_blank) / max(len(before), 1),
+            len(after_non_blank) / max(len(after), 1),
+        )
+        uniqueness = 1 - max(duplicate_ratio(before_non_blank), duplicate_ratio(after_non_blank))
+        return 0.55 * overlap_ratio + 0.20 * completeness + 0.25 * uniqueness
+
     def _compare_by_key(
         self,
         before_frame: pd.DataFrame,
@@ -208,13 +275,14 @@ class WorkbookDiffEngine:
         after_aligned: pd.DataFrame,
         before_to_after: dict[str, str],
         key_columns: tuple[str, ...],
+        key_normalization: str,
         compare_columns: list[str],
         diff_rows: list[dict[str, Any]],
         row_rows: list[dict[str, Any]],
         comments: list[CellComment],
     ) -> None:
-        before_keys = build_key_series(before_frame, key_columns)
-        after_keys = build_key_series(after_aligned, key_columns)
+        before_keys = build_key_series(before_frame, key_columns, key_normalization)
+        after_keys = build_key_series(after_aligned, key_columns, key_normalization)
         before_map = {key: index for index, key in before_keys.items() if key}
         after_map = {key: index for index, key in after_keys.items() if key}
         all_keys = list(dict.fromkeys([*before_map.keys(), *after_map.keys()]))
@@ -224,10 +292,21 @@ class WorkbookDiffEngine:
             after_index = after_map.get(key)
             if before_index is None:
                 row_rows.append({"상태": "전 파일에 없던 행", "비교 기준": key, "전 파일 행": "", "후 파일 행": int(after_index) + 2})
+                after_column = str(after_frame.columns[0])
+                diff_rows.append(
+                    {
+                        "상태": "전 파일에 없던 행",
+                        "비교 기준": key,
+                        "컬럼명": "",
+                        "전 값": "",
+                        "후 값": "",
+                        "후 파일 셀": f"{after_column}{int(after_index) + 2}",
+                    }
+                )
                 comments.append(
                     CellComment(
                         row_index=int(after_index),
-                        column_name=str(after_frame.columns[0]),
+                        column_name=after_column,
                         message="전 파일에 없던 행입니다.",
                         fill="BFDBFE",
                     )
@@ -277,10 +356,21 @@ class WorkbookDiffEngine:
             key = f"{index + 2}행"
             if index >= len(before_frame):
                 row_rows.append({"상태": "전 파일에 없던 행", "비교 기준": key, "전 파일 행": "", "후 파일 행": index + 2})
+                after_column = str(after_frame.columns[0])
+                diff_rows.append(
+                    {
+                        "상태": "전 파일에 없던 행",
+                        "비교 기준": key,
+                        "컬럼명": "",
+                        "전 값": "",
+                        "후 값": "",
+                        "후 파일 셀": f"{after_column}{index + 2}",
+                    }
+                )
                 comments.append(
                     CellComment(
                         row_index=index,
-                        column_name=str(after_frame.columns[0]),
+                        column_name=after_column,
                         message="전 파일에 없던 행입니다.",
                         fill="BFDBFE",
                     )
@@ -288,6 +378,16 @@ class WorkbookDiffEngine:
                 continue
             if index >= len(after_frame):
                 row_rows.append({"상태": "후 파일에 행 없음", "비교 기준": key, "전 파일 행": index + 2, "후 파일 행": ""})
+                diff_rows.append(
+                    {
+                        "상태": "후 파일에 행 없음",
+                        "비교 기준": key,
+                        "컬럼명": "",
+                        "전 값": "",
+                        "후 값": "",
+                        "후 파일 셀": "",
+                    }
+                )
                 continue
             row_rows.append({"상태": "양쪽 모두 있음", "비교 기준": key, "전 파일 행": index + 2, "후 파일 행": index + 2})
             self._compare_cells(
@@ -366,6 +466,9 @@ class WorkbookDiffReportWriter:
             changed_rows = self._changed_rows_frame(result)
             if not changed_rows.empty:
                 changed_rows.to_excel(writer, sheet_name="차이행만", index=False)
+            missing_rows = self._missing_rows_frame(result)
+            if not missing_rows.empty:
+                missing_rows.to_excel(writer, sheet_name="빠진행", index=False)
             pd.DataFrame([{"항목": key, "값": value} for key, value in result.summary.items()]).to_excel(
                 writer, sheet_name="점검요약", index=False
             )
@@ -391,8 +494,8 @@ class WorkbookDiffReportWriter:
                 {
                     "먼저 볼 내용": "행 추가/누락",
                     "현재 결과": f"{result.summary.get('missing_row_count', 0) + result.summary.get('added_row_count', 0)}건",
-                    "바로 할 일": "후 파일에 새로 생기거나 빠진 행을 확인하세요.",
-                    "관련 시트": "행비교",
+                    "바로 할 일": "후 파일에 새로 생기거나 빠진 행을 확인하세요. 빠진 행의 원본 내용은 `빠진행` 시트에 있습니다.",
+                    "관련 시트": "행비교, 빠진행",
                 },
                 {
                     "먼저 볼 내용": "컬럼 추가/누락",
@@ -429,6 +532,30 @@ class WorkbookDiffReportWriter:
             if 0 <= index < len(result.after_frame):
                 row = {"차이 유형": ", ".join(sorted(row_status[index])), "후 파일 행": index + 2}
                 row.update(result.after_frame.loc[index].to_dict())
+                rows.append(row)
+        return pd.DataFrame(rows)
+
+    def _missing_rows_frame(self, result: WorkbookDiffResult) -> pd.DataFrame:
+        if result.before_frame.empty or result.row_frame.empty:
+            return pd.DataFrame()
+        missing = result.row_frame[result.row_frame["상태"] == "후 파일에 행 없음"]
+        if missing.empty:
+            return pd.DataFrame()
+
+        rows = []
+        for _, missing_row in missing.iterrows():
+            before_row_number = missing_row.get("전 파일 행", "")
+            try:
+                before_index = int(before_row_number) - 2
+            except (TypeError, ValueError):
+                continue
+            if 0 <= before_index < len(result.before_frame):
+                row = {
+                    "차이 유형": "후 파일에 행 없음",
+                    "비교 기준": missing_row.get("비교 기준", ""),
+                    "전 파일 행": before_row_number,
+                }
+                row.update(result.before_frame.loc[before_index].to_dict())
                 rows.append(row)
         return pd.DataFrame(rows)
 

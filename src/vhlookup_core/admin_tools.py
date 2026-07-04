@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from numbers import Real
 from pathlib import Path
 from typing import Any
 
@@ -140,6 +141,9 @@ AGGREGATION_FUNCTIONS = {
 
 COUNT_HELPER_COLUMN = "__vhlookup_row_count__"
 COUNT_DISPLAY_COLUMN = "건수"
+PIVOT_DECIMAL_PLACES = 2
+PIVOT_INTEGER_FORMAT = "#,##0"
+PIVOT_DECIMAL_FORMAT = "#,##0.##"
 
 
 @dataclass(frozen=True)
@@ -383,7 +387,9 @@ class AdminWorkbookTools:
             output_value_column=output_value_column,
             aggregation=aggregation_label,
         )
+        pivot_frame = self._clean_pivot_display_numbers(pivot_frame, label_columns={row_column})
         top_frame = self._make_top_frame(pivot_frame, row_column, selected_column, output_value_column)
+        top_frame = self._clean_pivot_display_numbers(top_frame, label_columns={"순위", row_column})
         guide_frame = self._pivot_guide_frame(
             metadata=metadata,
             row_column=row_column,
@@ -434,6 +440,7 @@ class AdminWorkbookTools:
                 result.invalid_rows.to_excel(writer, sheet_name="오류행만", index=False)
             result.source_frame.to_excel(writer, sheet_name="원본", index=False)
             self._style_workbook(writer.book)
+            self._format_pivot_number_cells(writer.book, result)
             self._mark_pivot_summary(writer.book, result)
         return PivotWorkbookResult(
             output_path=output,
@@ -609,6 +616,26 @@ class AdminWorkbookTools:
         total = pd.DataFrame([{row_column: "합계", output_value_column: total_value}])
         return pd.concat([grouped, total], ignore_index=True)
 
+    def _clean_pivot_display_numbers(self, frame: pd.DataFrame, label_columns: set[str]) -> pd.DataFrame:
+        if frame.empty:
+            return frame
+        output = frame.copy()
+        for column in output.columns:
+            if str(column) in label_columns:
+                continue
+            output[column] = output[column].map(self._clean_pivot_number)
+        return output
+
+    def _clean_pivot_number(self, value: object) -> object:
+        if is_blank(value):
+            return value
+        if isinstance(value, Real) and not isinstance(value, bool):
+            rounded = round(float(value), PIVOT_DECIMAL_PLACES)
+            if rounded.is_integer():
+                return int(rounded)
+            return rounded
+        return value
+
     def _make_top_frame(
         self,
         pivot_frame: pd.DataFrame,
@@ -700,6 +727,18 @@ class AdminWorkbookTools:
             cell.fill = fill
             if cell.comment is None:
                 cell.comment = make_comment(message)
+
+    def _format_pivot_number_cells(self, workbook, result: PivotSummaryResult) -> None:
+        for sheet_name in ("피벗요약", "상위목록"):
+            if sheet_name not in workbook.sheetnames:
+                continue
+            sheet = workbook[sheet_name]
+            for row in sheet.iter_rows(min_row=2):
+                for cell in row:
+                    if isinstance(cell.value, int):
+                        cell.number_format = PIVOT_INTEGER_FORMAT
+                    elif isinstance(cell.value, float):
+                        cell.number_format = PIVOT_DECIMAL_FORMAT
 
     def _unique_sheet_name(self, value: object, used_sheet_names: set[str]) -> str:
         raw = re.sub(r"[\[\]\:\*\?\/\\]", "_", str(value)).strip() or "빈값"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import traceback
+from numbers import Integral, Real
 from datetime import datetime
 from pathlib import Path
 from tkinter import Canvas, END, Listbox, StringVar, Text, Tk, Toplevel, filedialog, messagebox
@@ -503,14 +504,15 @@ class LocalApp:
             tree.heading(column, text=column)
             tree.column(column, width=120, minwidth=80, stretch=True)
         for _, row in preview.iterrows():
-            tree.insert(END, values=["" if pd.isna(value) else str(value) for value in row.tolist()])
+            tree.insert(END, values=[self._format_preview_value(value) for value in row.tolist()])
 
     def _write_preview_text(self, widget: Text, frame: pd.DataFrame, limit: int = 10) -> None:
         preview = frame.head(limit).copy()
         if preview.empty:
             body = "미리볼 데이터가 없습니다."
         else:
-            body = preview.to_string(index=False, max_rows=limit, max_cols=20)
+            display_preview = preview.apply(lambda column: column.map(self._format_preview_value))
+            body = display_preview.to_string(index=False, max_rows=limit, max_cols=20)
         header = f"미리보기: 총 {len(frame)}행, {len(frame.columns)}열 중 앞 {min(len(frame), limit)}행 표시\n"
         widget.configure(state="normal")
         widget.delete("1.0", END)
@@ -519,6 +521,18 @@ class LocalApp:
         widget.insert(END, body)
         widget.configure(state="disabled")
         widget.see("1.0")
+
+    def _format_preview_value(self, value: object) -> str:
+        if pd.isna(value):
+            return ""
+        if isinstance(value, Real) and not isinstance(value, (bool, Integral)):
+            rounded = round(float(value), 2)
+            if rounded.is_integer():
+                return f"{int(rounded):,}"
+            return f"{rounded:,.2f}".rstrip("0").rstrip(".")
+        if isinstance(value, Integral) and not isinstance(value, bool):
+            return f"{int(value):,}"
+        return str(value)
 
     def _scrollable_frame(self, parent) -> tuple[ttk.Frame, Canvas]:
         canvas = Canvas(parent, highlightthickness=0)

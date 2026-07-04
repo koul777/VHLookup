@@ -261,7 +261,17 @@ class ConsolidationEngine:
                     value_columns = tuple(manual_plan.get("value_columns", ()))
                     if not reference_keys or not target_keys or not value_columns:
                         raise ValueError("열 합치기 수동 설정에 키 또는 가져올 컬럼이 없습니다.")
-                    key_spec = KeySpec(reference_key_columns=reference_keys, target_key_columns=target_keys)
+                    normalization = str(
+                        manual_plan.get("normalization")
+                        or planner.infer_key_normalization(reference, result, reference_keys, target_keys)
+                    )
+                    if normalization not in {"text", "loose_numeric"}:
+                        normalization = "text"
+                    key_spec = KeySpec(
+                        reference_key_columns=reference_keys,
+                        target_key_columns=target_keys,
+                        normalization=normalization,  # type: ignore[arg-type]
+                    )
                     merge_result = merger.merge_lookup(
                         reference,
                         result,
@@ -280,7 +290,9 @@ class ConsolidationEngine:
                             "대상표 컬럼": " + ".join(target_keys),
                             "신뢰도": 1.0,
                             "추천 방식": "미리보기 화면에서 사용자가 선택",
-                            "검토 메모": "",
+                            "검토 메모": "앞자리 0 차이는 같은 숫자 키로 맞춰 비교했습니다."
+                            if normalization == "loose_numeric"
+                            else "",
                         }
                     )
                     for value_column in value_columns:
