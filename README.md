@@ -30,6 +30,12 @@ Get-FileHash .\VHLookupLocal_pivot.exe -Algorithm SHA256
 
 공식 Release에서 받은 파일이고 SHA256이 일치하면 Edge 다운로드 목록에서 `유지` 또는 `그래도 유지`를 선택할 수 있습니다. 실행 시 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다.
 
+Edge에서 다운로드가 막히는 경우 아래 화면처럼 진행합니다. 공식 Release에서 받은 파일이고 SHA256이 일치할 때만 진행합니다.
+
+| 1. 다운로드 목록의 `...` 메뉴에서 `유지` 선택 | 2. 확인 창에서 아래 화살표를 누른 뒤 `그래도 계속` 선택 |
+| --- | --- |
+| ![Edge 다운로드 목록에서 유지 선택](docs/assets/edge-download-keep.jpg) | ![SmartScreen 확인 창에서 그래도 계속 선택](docs/assets/edge-download-continue.jpg) |
+
 장기적으로는 실행파일에 코드 서명 인증서를 적용해야 이런 경고가 줄어듭니다.
 
 ## 실행 화면
