@@ -62,10 +62,10 @@ DEMO_TOUR_ROWS = [
     },
     {
         "순서": "05",
-        "결과 파일": "05_가로세로변환_결과.xlsx",
-        "업무 상황": "가로세로 변환",
+        "결과 파일": "05_월별표_목록형변환.xlsx",
+        "업무 상황": "월별표 목록형 변환",
         "열어볼 시트": "결과",
-        "확인 포인트": "월별 컬럼을 열 기준/값 형태의 세로형 표로 변환",
+        "확인 포인트": "월별 컬럼을 열 기준/값 형태의 목록형 자료로 변환",
     },
     {
         "순서": "06",
@@ -120,7 +120,7 @@ def write_demo_tour(output_dir: Path) -> None:
                 {"단계": 1, "할 일": "00_샘플_둘러보기.xlsx에서 샘플순서 시트를 봅니다."},
                 {"단계": 2, "할 일": "03_제출자료_수합결과.xlsx의 확인사항 시트에서 자동 매칭 근거를 봅니다."},
                 {"단계": 3, "할 일": "04_전후파일_검증결과.xlsx의 후파일_메모 시트를 봅니다."},
-                {"단계": 4, "할 일": "05_가로세로변환_결과.xlsx의 결과 시트를 봅니다."},
+                {"단계": 4, "할 일": "05_월별표_목록형변환.xlsx의 결과 시트를 봅니다."},
                 {"단계": 5, "할 일": "06_피벗요약표_결과.xlsx의 피벗요약 시트를 봅니다."},
                 {"단계": 6, "할 일": "원본 CSV 파일이 그대로 남아 있는지 확인합니다."},
             ]
@@ -182,20 +182,22 @@ def main() -> int:
     WorkbookDiffReportWriter().write_xlsx(diff, OUTPUT / "04_전후파일_검증결과.xlsx")
 
     horizontal_source = load_table(SAMPLES / "05_horizontal_table" / "monthly_budget_wide.csv")
-    horizontal_detection = HorizontalTableEngine().detect(horizontal_source)
-    horizontal_id_columns = [column for column in horizontal_source.columns if column not in horizontal_detection.value_columns]
+    horizontal_engine = HorizontalTableEngine()
+    detection = horizontal_engine.detect(horizontal_source)
+    converted = horizontal_engine.wide_to_long(
+        horizontal_source,
+        id_columns=[column for column in horizontal_source.columns if column not in detection.value_columns],
+        value_columns=detection.value_columns,
+    )
     horizontal = JobResult(
-        result_frame=HorizontalTableEngine().wide_to_long(
-            horizontal_source,
-            id_columns=horizontal_id_columns,
-            value_columns=horizontal_detection.value_columns,
-        ),
+        result_frame=converted,
         summary={
-            "workflow": "가로세로 변환",
-            "auto_value_columns": ", ".join(horizontal_detection.value_columns),
+            "workflow": "월별표 목록형 변환",
+            "row_count": len(converted),
+            "auto_value_columns": ", ".join(detection.value_columns),
         },
     )
-    writer.write_xlsx(horizontal, OUTPUT / "05_가로세로변환_결과.xlsx")
+    writer.write_xlsx(horizontal, OUTPUT / "05_월별표_목록형변환.xlsx")
 
     tools.write_pivot_workbook(
         SAMPLES / "06_pivot_summary" / "budget_execution.csv",

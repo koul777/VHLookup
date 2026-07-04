@@ -22,11 +22,13 @@ Windows 또는 Microsoft Edge에서 `일반적으로 다운로드되지 않음`,
 Get-FileHash .\VHLookupLocal_pivot_v1.2.exe -Algorithm SHA256
 ```
 
-현재 Release 기준 SHA256은 아래와 같습니다.
+현재 `v1.2` Release 첨부파일 기준 SHA256은 아래와 같습니다.
 
 ```text
-E6D5E60AEC563EFD70D6EEA6B1CCA4AD043DDD13BACA2430C84D97C7650D417D
+8F8A3A3646A3016B2EF7D6EA493F87F7691349E0DEB67916927B7E3F28D028A3
 ```
+
+현재 `v1.2` Release 첨부파일 크기는 `37,739,205 bytes`입니다.
 
 공식 Release에서 받은 파일이고 SHA256이 일치하면 Edge 다운로드 목록에서 `유지` 또는 `그래도 유지`를 선택할 수 있습니다. 실행 시 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다.
 
@@ -42,6 +44,19 @@ Edge에서 다운로드가 막히는 경우 아래 화면처럼 진행합니다.
 
 ![VHLookup Local 첫 화면](docs/assets/vhlookup-local-main.jpg)
 
+## 기능별 엑셀 캡처
+
+각 기능이 만드는 결과 엑셀의 대표 화면입니다. 샘플 결과는 `run_demo.bat` 또는 `python scripts\run_public_admin_demo.py` 실행 후 `demo_output` 폴더에서 확인할 수 있습니다.
+
+| 기능 | 의미 | 결과 예시 |
+| --- | --- | --- |
+| 1. 개인정보 마스킹 | 이름, 연락처, 계좌, 주소, 생년월일 같은 개인정보를 원본 값 없이 가립니다. | ![개인정보 마스킹 결과](docs/images/feature_01_privacy_masking.png) |
+| 2. 분류별 시트 나누기 | 한 파일을 부서/기관/상태 같은 기준별 시트로 나눕니다. | ![분류별 시트 나누기 결과](docs/images/feature_02_split_sheets.png) |
+| 3. 엑셀/CSV 파일 여러 개 합치기 | 여러 제출 파일을 행 또는 열 기준으로 합치고 자동 매칭 근거를 남깁니다. | ![파일 합치기 결과](docs/images/feature_03_merge_files.png) |
+| 4. 전/후 파일 검증 | 수정 전/후 파일의 변경 셀, 추가 행, 빠진 행을 색과 메모로 표시합니다. | ![전후 파일 검증 결과](docs/images/feature_04_before_after_validation.png) |
+| 5. 월별표 목록형 변환 | `1월`, `2월`처럼 옆으로 펼쳐진 월별 열을 `열 기준`, `값` 형태로 풉니다. | ![월별표 목록형 변환 결과](docs/images/feature_05_monthly_list.png) |
+| 6. 피벗 요약표 만들기 | 부서/월/상태 같은 기준별 건수, 합계, 평균 요약표를 만듭니다. | ![피벗 요약표 결과](docs/images/feature_06_pivot_summary.png) |
+
 ## 최근 업데이트
 
 ### 2026-07-04
@@ -53,7 +68,7 @@ Edge에서 다운로드가 막히는 경우 아래 화면처럼 진행합니다.
 - 파일 합치기 결과에는 개인정보 의심 컬럼을 따로 점검하거나 색칠하지 않습니다.
 - 전/후 파일 검증에서 컬럼명이 바뀐 경우, 추가 행, 빠진 행, 값 변경을 함께 표시합니다.
 - 전/후 파일 검증 결과에서 새로 생긴 행은 파란색, 사라진 행은 첫 시트 아래에 추가해 빨간색으로 표시합니다.
-- 가로세로 변환은 월/분기처럼 옆으로 펼쳐진 열을 세로형 표로 바꾸고, 대용량 파일 탑재와 실행 중 진행률 창을 표시합니다.
+- 월별표 목록형 변환은 월/분기처럼 옆으로 펼쳐진 열을 `열 기준`, `값` 목록으로 바꾸고, 대용량 파일 탑재와 실행 중 진행률 창을 표시합니다.
 - 피벗 요약표 숫자는 천 단위 콤마와 최대 소수 2자리로 보기 좋게 표시합니다.
 - 결과 엑셀은 첫 시트를 실제 결과로 두고, 보조 설명은 `확인사항` 시트 한 장으로 단순화했습니다.
 - 합치기 방향은 기본 `자동 선택`으로 두고, 결과 저장 위치는 사용자가 저장 창에서 직접 고릅니다.
@@ -153,16 +168,16 @@ dist\VHLookupLocal_pivot_v1.2.exe
 - 후 파일에서 사라진 행은 `후파일_메모` 시트 맨 아래에 전 파일 값으로 추가하고 빨간색 전체 행으로 표시
 - 추가 행, 빠진 행, 컬럼 변경은 `확인사항` 시트에서 확인
 
-### 5. 가로세로 변환
+### 5. 월별표 목록형 변환
 
-월별, 분기별로 옆으로 펼쳐진 가로표를 세로형 자료로 바꿉니다.
+월별, 분기별로 옆으로 펼쳐진 표를 목록형 자료로 바꿉니다.
 
-- `1월`, `2월`, `1분기`, `2분기` 같은 값 열 자동 감지
-- 값 열을 제외한 나머지 컬럼을 행 기준 컬럼으로 자동 추천
-- 행 기준 컬럼은 쉼표로 직접 수정 가능
+- `1월`, `2월`, `3월`, `1분기` 같은 값 열 자동 감지
+- 값 열을 제외한 나머지 열은 행 기준 컬럼으로 사용
+- 결과는 `열 기준`, `값` 컬럼을 가진 목록형 표로 생성
 - 결과 시트: `결과`, `확인사항`
 - 파일 탑재 미리보기와 실제 변환 실행 중 진행률 창 표시
-- 대용량 파일도 파일 읽기, 열 감지, 변환, 저장 단계를 진행률로 표시
+- 대용량 파일도 파일 읽기, 값 열 감지, 목록형 변환, 저장 단계를 진행률로 표시
 
 ### 6. 피벗 요약표 만들기
 
@@ -215,8 +230,10 @@ samples\public_admin
 ├─ 04_before_after_validation
 │  └─ large_before_after_diagonal_10k
 ├─ 05_horizontal_table
+│  ├─ monthly_budget_wide.csv
 │  └─ large_monthly_budget_wide_10k.csv
 └─ 06_pivot_summary
+   └─ budget_execution.csv
 ```
 
 ### 메뉴별 샘플
@@ -310,21 +327,20 @@ samples\public_admin
 - 예상 규모: 각 파일 10,000행 x 50열
 - 확인 포인트: `검증ID` 키는 그대로 두고, 후 파일의 `항목01`~`항목49` 대각선 49개 셀만 다른 글자로 변경되어 노란색과 메모로 표시되는지 확인
 
-**월별 가로표 세로 변환**
+**월별표 목록형 변환**
 
-- 누를 기능: `5. 가로세로 변환`
+- 누를 기능: `5. 월별표 목록형 변환`
 - 선택할 파일: `samples\public_admin\05_horizontal_table\monthly_budget_wide.csv`
-- 화면 선택값: 행 기준 컬럼 자동 추천 확인
 - 결과에서 먼저 볼 시트: `결과`
 - 그 다음 참고 시트: `확인사항`
-- 확인 포인트: `1월`~`4월` 컬럼이 `열 기준`, `값` 컬럼으로 변환되는지 확인
+- 확인 포인트: `1월`~`4월` 값 열이 `열 기준`, `값` 컬럼으로 풀리는지 확인
 
-**대용량 가로세로 변환 샘플**
+**대용량 월별표 목록형 변환 샘플**
 
-- 누를 기능: `5. 가로세로 변환`
+- 누를 기능: `5. 월별표 목록형 변환`
 - 선택할 파일: `samples\public_admin\05_horizontal_table\large_monthly_budget_wide_10k.csv`
-- 예상 규모: 입력 10,000행 x 17열, 결과 120,000행
-- 확인 포인트: 파일 탑재 미리보기와 실행 중 진행률 창에 파일 읽기/열 감지/변환/저장 단계가 표시되는지 확인
+- 예상 규모: 입력 10,000행 x 17열, 목록형 변환 결과 120,000행
+- 확인 포인트: 파일 탑재 미리보기와 실행 중 진행률 창에 파일 읽기/값 열 감지/목록형 변환/저장 단계가 표시되는지 확인
 
 **부서/월별 예산 피벗**
 
@@ -399,7 +415,7 @@ $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest
 - 다른 이름의 컬럼과 앞자리 0이 다른 키 자동 매칭
 - 전/후 파일 검증
 - 전/후 파일 검증의 추가 행, 빠진 행, 이름이 바뀐 컬럼 비교
-- 가로세로 변환
+- 월별표 목록형 변환
 - 피벗 요약표
 - 공공기관 행정 샘플 처리
 
@@ -411,7 +427,7 @@ $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest
 python -m vhlookup_cli.main inspect --path "C:\path\submissions" --out inspect.xlsx
 python -m vhlookup_cli.main consolidate --folder "C:\path\submissions" --out result.xlsx
 python -m vhlookup_cli.main lookup --reference master.xlsx --target submitted.xlsx --out lookup_result.xlsx
-python -m vhlookup_cli.main horizontal --file monthly_wide.xlsx --out monthly_long.xlsx
+python -m vhlookup_cli.main horizontal --file monthly_wide.xlsx --out monthly_list.xlsx
 ```
 
 비개발자용 기본 사용은 CLI가 아니라 배포용 `VHLookupLocal_pivot_v1.2.exe` 실행입니다.
@@ -425,7 +441,7 @@ python -m vhlookup_cli.main horizontal --file monthly_wide.xlsx --out monthly_lo
 
 ## 구조
 
-- `src/vhlookup_core`: 파일 로더, 헤더 탐지, 컬럼 매칭, 수합, 대조, 가로세로 변환, 피벗, 리포트 작성
+- `src/vhlookup_core`: 파일 로더, 헤더 탐지, 컬럼 매칭, 수합, 대조, 월별표 목록형 변환, 피벗, 리포트 작성
 - `src/vhlookup_app`: Windows 데스크톱 GUI
 - `src/vhlookup_cli`: 명령어 실행 도구
 - `samples`: 샘플 데이터

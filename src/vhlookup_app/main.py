@@ -88,7 +88,7 @@ class MainWindow(QMainWindow):
                 "학교/부서 제출자료 수합",
                 "기준표에서 값 붙이기",
                 "빠진 사람/누락자료 찾기",
-                "월별 가로표 세로 변환",
+                "월별표 목록형 변환",
             ]
         )
         self.mode_select.currentIndexChanged.connect(self._switch_mode)

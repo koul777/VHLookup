@@ -179,4 +179,9 @@ def test_cli_reconcile_and_horizontal_workflows(tmp_path):
     reconcile = pd.read_excel(reconcile_out, sheet_name="확인사항")
     horizontal = pd.read_excel(horizontal_out, sheet_name="결과")
     assert "대상표에 없는 건수" in set(reconcile["기준/컬럼"])
-    assert set(horizontal.columns) == {"기관명", "사업구분", "담당부서", "비고", "열 기준", "값"}
+    assert list(horizontal.columns) == ["기관명", "사업구분", "담당부서", "비고", "열 기준", "값"]
+    assert len(horizontal) == 16
+    assert horizontal.loc[
+        (horizontal["기관명"] == "강북초") & (horizontal["열 기준"] == "1월"),
+        "값",
+    ].iloc[0] == 400000

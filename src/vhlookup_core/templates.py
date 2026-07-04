@@ -103,13 +103,13 @@ TEMPLATES: tuple[WorkflowTemplate, ...] = (
     ),
     WorkflowTemplate(
         id="monthly_wide_to_long",
-        name="월별 가로표 세로 변환",
+        name="월별표 목록형 변환",
         mode="horizontal",
-        headline="1월, 2월, 3월로 옆으로 긴 표를 세로형 자료로 변환",
-        description="월별, 분기별, 항목별 가로표를 수합과 대조에 다시 쓸 수 있는 세로형 표로 바꿉니다.",
+        headline="1월, 2월, 3월로 옆으로 긴 표를 목록형 자료로 변환",
+        description="월별, 분기별, 항목별 가로표를 수합과 대조에 다시 쓸 수 있는 열 기준/값 목록형 표로 바꿉니다.",
         key_columns=("기관명", "항목"),
         required_columns=("기관명", "항목"),
-        output_name="월별가로표_세로변환.xlsx",
+        output_name="월별표_목록형변환.xlsx",
     ),
 )
 

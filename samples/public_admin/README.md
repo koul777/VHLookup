@@ -22,8 +22,10 @@ samples/public_admin
 ├─ 04_before_after_validation
 │  └─ large_before_after_diagonal_10k
 ├─ 05_horizontal_table
+│  ├─ monthly_budget_wide.csv
 │  └─ large_monthly_budget_wide_10k.csv
 └─ 06_pivot_summary
+   └─ budget_execution.csv
 ```
 
 ## 1. 개인정보 마스킹
@@ -99,19 +101,20 @@ samples/public_admin
 
 두 파일은 각각 10,000행 x 50열입니다. `검증ID` 키는 양쪽 모두 같고, 후 파일의 `항목01`~`항목49` 대각선 49개 셀만 다른 글자로 바뀌어 있습니다.
 
-## 5. 가로세로 변환
+## 5. 월별표 목록형 변환
 
 `05_horizontal_table/monthly_budget_wide.csv`를 사용합니다.
 
 확인할 수 있는 흐름:
-- `1월`, `2월`, `3월`, `4월` 컬럼 자동 감지
-- 월별 가로표를 `기관명`, `사업구분`, `담당부서`, `비고`, `열 기준`, `값` 형태로 변환
+- `1월`, `2월`, `3월`, `4월` 같은 값 열 자동 감지
+- 월별 값 열을 `열 기준`, `값` 컬럼으로 풀기
+- 기관명, 사업구분, 담당부서, 비고는 행 기준 컬럼으로 유지
 - 파일 탑재 미리보기와 실행 중 진행률 창 표시
 
 대용량 성능 확인 샘플:
 - `05_horizontal_table/large_monthly_budget_wide_10k.csv`
 
-대용량 샘플은 10,000행 x 17열이며, 변환 결과는 120,000행입니다. 실제 개인정보가 아닌 합성 기관명과 테스트 금액만 들어 있습니다.
+대용량 샘플은 10,000행 x 17열이며, 목록형 변환 결과는 120,000행입니다. 실제 개인정보가 아닌 합성 기관명과 테스트 금액만 들어 있습니다.
 
 ## 6. 피벗 요약표 만들기
 

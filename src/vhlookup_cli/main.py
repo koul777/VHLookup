@@ -75,10 +75,14 @@ def build_parser() -> argparse.ArgumentParser:
     reconcile.add_argument("--target-label", default="대상표", help="리포트에 표시할 대상표 이름")
     reconcile.set_defaults(handler=run_reconcile)
 
-    horizontal = subparsers.add_parser("horizontal", help="월별/분기별 가로표를 세로형 자료로 바꿉니다.")
-    horizontal.add_argument("--file", required=True, help="가로표 파일")
+    horizontal = subparsers.add_parser("horizontal", help="월별/분기별 가로표를 목록형 자료로 바꿉니다.")
+    horizontal.add_argument("--file", required=True, help="변환할 파일")
     horizontal.add_argument("--out", required=True, help="결과 xlsx 경로")
-    horizontal.add_argument("--id-columns", default="", help="행 기준 컬럼. 쉼표로 구분. 비우면 월/분기 컬럼 외 나머지")
+    horizontal.add_argument(
+        "--id-columns",
+        default="",
+        help="행 기준 컬럼. 쉼표로 구분. 비우면 월/분기 컬럼 외 나머지",
+    )
     horizontal.set_defaults(handler=run_horizontal)
 
     return parser
@@ -158,12 +162,14 @@ def run_horizontal(args: argparse.Namespace) -> None:
     table = load_table(Path(args.file))
     engine = HorizontalTableEngine()
     detection = engine.detect(table)
+    if not detection.value_columns:
+        raise ValueError("월/분기처럼 가로로 펼쳐진 값 열을 찾지 못했습니다.")
     id_columns = split_columns(args.id_columns) or [column for column in table.columns if column not in detection.value_columns]
-    converted = engine.wide_to_long(table, id_columns=id_columns)
+    converted = engine.wide_to_long(table, id_columns=id_columns, value_columns=detection.value_columns)
     result = JobResult(
         result_frame=converted,
         summary={
-            "workflow": "월별 가로표 세로 변환",
+            "workflow": "월별표 목록형 변환",
             "row_count": len(converted),
             "auto_value_columns": ", ".join(detection.value_columns),
         },

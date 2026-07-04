@@ -209,16 +209,23 @@ def test_merge_mode_recommendation_distinguishes_row_and_column_samples():
     ) == "columns"
 
 
-def test_horizontal_table_sample_converts_month_columns():
+def test_horizontal_table_sample_converts_month_columns_to_list():
     table = _load_table(HORIZONTAL_SAMPLES / "monthly_budget_wide.csv")
     engine = HorizontalTableEngine()
     detection = engine.detect(table)
-    id_columns = [column for column in table.columns if column not in detection.value_columns]
-    converted = engine.wide_to_long(table, id_columns=id_columns, value_columns=detection.value_columns)
+    converted = engine.wide_to_long(
+        table,
+        id_columns=[column for column in table.columns if column not in detection.value_columns],
+        value_columns=detection.value_columns,
+    )
 
     assert detection.value_columns == ("1월", "2월", "3월", "4월")
-    assert set(converted.columns) == {"기관명", "사업구분", "담당부서", "비고", "열 기준", "값"}
+    assert list(converted.columns) == ["기관명", "사업구분", "담당부서", "비고", "열 기준", "값"]
     assert len(converted) == 16
+    assert str(converted.loc[
+        (converted["기관명"] == "강북초") & (converted["열 기준"] == "1월"),
+        "값",
+    ].iloc[0]) == "400000"
 
 
 def test_messy_header_department_status_sample_consolidates():

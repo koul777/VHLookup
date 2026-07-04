@@ -124,10 +124,10 @@ DEMO_TOUR_ROWS = [
     },
     {
         "순서": "05",
-        "결과 파일": "05_가로세로변환_결과.xlsx",
-        "업무 상황": "가로세로 변환",
+        "결과 파일": "05_월별표_목록형변환.xlsx",
+        "업무 상황": "월별표 목록형 변환",
         "열어볼 시트": "결과",
-        "확인 포인트": "월별 컬럼을 열 기준/값 형태의 세로형 표로 변환",
+        "확인 포인트": "월별 컬럼을 열 기준/값 형태의 목록형 자료로 변환",
     },
     {
         "순서": "06",
@@ -161,7 +161,7 @@ def write_demo_tour(output_dir: Path) -> None:
                 {"단계": 1, "할 일": "00_샘플_둘러보기.xlsx에서 샘플순서 시트를 봅니다."},
                 {"단계": 2, "할 일": "03_제출자료_수합결과.xlsx의 자동추천근거 시트를 봅니다."},
                 {"단계": 3, "할 일": "04_전후파일_검증결과.xlsx의 후파일_메모 시트를 봅니다."},
-                {"단계": 4, "할 일": "05_가로세로변환_결과.xlsx의 결과 시트를 봅니다."},
+                {"단계": 4, "할 일": "05_월별표_목록형변환.xlsx의 결과 시트를 봅니다."},
                 {"단계": 5, "할 일": "06_피벗요약표_결과.xlsx의 피벗요약 시트를 봅니다."},
             ]
         ).to_excel(writer, sheet_name="추천동선", index=False)
@@ -202,20 +202,22 @@ def generate_demo_reports(output_dir: Path, samples_dir: Path) -> list[Path]:
     WorkbookDiffReportWriter().write_xlsx(diff, output_dir / "04_전후파일_검증결과.xlsx")
 
     horizontal_source = load_table(samples_dir / "05_horizontal_table" / "monthly_budget_wide.csv")
-    horizontal_detection = HorizontalTableEngine().detect(horizontal_source)
-    horizontal_id_columns = [column for column in horizontal_source.columns if column not in horizontal_detection.value_columns]
+    horizontal_engine = HorizontalTableEngine()
+    detection = horizontal_engine.detect(horizontal_source)
+    converted = horizontal_engine.wide_to_long(
+        horizontal_source,
+        id_columns=[column for column in horizontal_source.columns if column not in detection.value_columns],
+        value_columns=detection.value_columns,
+    )
     horizontal = JobResult(
-        result_frame=HorizontalTableEngine().wide_to_long(
-            horizontal_source,
-            id_columns=horizontal_id_columns,
-            value_columns=horizontal_detection.value_columns,
-        ),
+        result_frame=converted,
         summary={
-            "workflow": "가로세로 변환",
-            "auto_value_columns": ", ".join(horizontal_detection.value_columns),
+            "workflow": "월별표 목록형 변환",
+            "row_count": len(converted),
+            "auto_value_columns": ", ".join(detection.value_columns),
         },
     )
-    writer.write_xlsx(horizontal, output_dir / "05_가로세로변환_결과.xlsx")
+    writer.write_xlsx(horizontal, output_dir / "05_월별표_목록형변환.xlsx")
 
     tools.write_pivot_workbook(
         samples_dir / "06_pivot_summary" / "budget_execution.csv",
@@ -256,6 +258,7 @@ class LocalApp:
         style.configure("ActionTitle.TLabel", background="#FFFFFF", foreground="#17324D", font=("", 10, "bold"))
         style.configure("ActionDesc.TLabel", background="#FFFFFF", foreground="#526173", font=("", 9))
         style.configure("Status.TLabel", background="#F4F7FA", foreground="#17324D", font=("", 9, "bold"))
+        style.configure("Credit.TLabel", background="#F4F7FA", foreground="#6B7280", font=("", 8))
         style.configure("TButton", padding=(10, 7), font=("", 9))
         style.configure("Action.TButton", padding=(12, 8), font=("", 9, "bold"))
         style.map("Action.TButton", background=[("active", "#DCEFEA")])
@@ -272,7 +275,7 @@ class LocalApp:
         ttk.Label(header, text=APP_DISPLAY_NAME, style="HeaderTitle.TLabel").pack(anchor="w")
         ttk.Label(
             header,
-            text="엑셀 수합, 대조, 검증, 가로세로 변환, 피벗 요약을 로컬 PC에서 처리합니다. 원본 파일은 수정하지 않습니다.",
+            text="엑셀 수합, 대조, 검증, 월별표 목록형 변환, 피벗 요약을 로컬 PC에서 처리합니다. 원본 파일은 수정하지 않습니다.",
             style="HeaderSub.TLabel",
         ).pack(anchor="w", pady=(4, 0))
 
@@ -306,8 +309,8 @@ class LocalApp:
         )
         self._action_button(
             actions,
-            "5. 가로세로 변환",
-            "월별/분기별로 옆으로 펼쳐진 열을 수합과 대조에 다시 쓸 수 있는 세로형 표로 바꿉니다.",
+            "5. 월별표 목록형 변환",
+            "1월, 2월처럼 옆으로 펼쳐진 월별 열을 열 기준/값 목록으로 풉니다.",
             self.quick_horizontal,
         )
         self._action_button(
@@ -335,6 +338,7 @@ class LocalApp:
         bottom = ttk.Frame(top, style="App.TFrame")
         bottom.pack(fill="x", pady=(8, 0))
         ttk.Label(bottom, textvariable=self.status, style="Status.TLabel").pack(side="left")
+        ttk.Label(bottom, text="By. HRKIM", style="Credit.TLabel").pack(side="right", padx=(12, 0))
         ttk.Button(bottom, text="최근 저장 폴더 열기", command=lambda: self.open_folder(self.last_output_dir)).pack(side="right")
 
     def _action_button(self, parent, title: str, description: str, command) -> None:
@@ -1319,7 +1323,7 @@ class LocalApp:
 
     def quick_horizontal(self) -> None:
         dialog = Toplevel(self.root)
-        dialog.title("가로세로 변환")
+        dialog.title("월별표 목록형 변환")
         dialog.geometry("980x700")
         dialog.transient(self.root)
         dialog.grab_set()
@@ -1333,7 +1337,7 @@ class LocalApp:
         frame.pack(fill="both", expand=True)
         ttk.Label(
             frame,
-            text="월별/분기별로 옆으로 펼쳐진 열을 세로형 표로 바꿉니다.",
+            text="월별/분기별로 옆으로 펼쳐진 열을 목록형 자료로 바꿉니다.",
             font=("", 11, "bold"),
         ).pack(anchor="w", pady=(0, 10))
 
@@ -1342,17 +1346,17 @@ class LocalApp:
         ttk.Label(file_row, text="원본 파일", width=12).pack(side="left")
         ttk.Entry(file_row, textvariable=file_path).pack(side="left", fill="x", expand=True)
 
-        option_box = ttk.LabelFrame(frame, text="변환 기준", padding=10)
+        option_box = ttk.LabelFrame(frame, text="목록형 변환 기준", padding=10)
         option_box.pack(fill="x", pady=(10, 0))
         ttk.Label(option_box, text="행 기준 컬럼").pack(anchor="w")
         ttk.Entry(option_box, textvariable=id_columns_text).pack(fill="x", pady=(4, 0))
         ttk.Label(
             option_box,
-            text="비워두면 1월, 2월, 1분기 같은 월/분기 컬럼을 자동으로 값 열로 잡고 나머지를 행 기준으로 둡니다.",
+            text="비워두면 1월, 2월 같은 월/분기 값 열을 제외한 나머지를 행 기준으로 둡니다.",
             wraplength=820,
         ).pack(anchor="w", pady=(6, 0))
 
-        status_text = StringVar(value="파일 선택을 누르면 미리보기와 자동 감지 결과가 표시됩니다.")
+        status_text = StringVar(value="파일 선택을 누르면 월별표 목록형 변환 미리보기가 표시됩니다.")
         ttk.Label(frame, textvariable=status_text, foreground="#374151").pack(anchor="w", pady=(10, 0))
 
         preview_box = ttk.LabelFrame(frame, text="미리보기", padding=8)
@@ -1381,13 +1385,12 @@ class LocalApp:
 
         def build_preview_frame() -> pd.DataFrame:
             if table_frame is None:
-                return pd.DataFrame([{"안내": "파일 선택을 눌러 가로세로 변환할 엑셀/CSV 파일을 선택하세요."}])
+                return pd.DataFrame([{"안내": "파일 선택을 눌러 월별표 엑셀/CSV 파일을 선택하세요."}])
+            engine = HorizontalTableEngine()
+            if not detected_value_columns:
+                return pd.DataFrame([{"안내": "1월, 2월 같은 월/분기 값 열을 찾지 못했습니다."}])
             id_columns = current_id_columns()
-            converted = HorizontalTableEngine().wide_to_long(
-                table_frame,
-                id_columns=id_columns,
-                value_columns=detected_value_columns,
-            )
+            converted = engine.wide_to_long(table_frame, id_columns=id_columns, value_columns=detected_value_columns)
             return converted.head(10)
 
         def refresh_preview() -> None:
@@ -1400,7 +1403,7 @@ class LocalApp:
             nonlocal table_frame, detected_value_columns
             selected = filedialog.askopenfilename(
                 parent=dialog,
-                title="가로세로 변환할 엑셀/CSV 파일을 선택하세요",
+                title="월별표 목록형 변환할 엑셀/CSV 파일을 선택하세요",
                 initialdir=self.base_dir,
                 filetypes=[("Excel/CSV", "*.xlsx *.xlsm *.csv"), ("All files", "*.*")],
             )
@@ -1411,16 +1414,17 @@ class LocalApp:
                 progress(10, "원본 파일 미리보기 읽는 중")
                 preview_table = load_table(Path(selected), max_rows=PREVIEW_LOAD_ROW_LIMIT)
                 progress(55, "월/분기 컬럼 자동 감지 중")
-                detection = HorizontalTableEngine().detect(preview_table)
+                engine = HorizontalTableEngine()
+                detection = engine.detect(preview_table)
                 if not detection.value_columns:
-                    raise ValueError("월/분기처럼 가로로 펼쳐진 값 열을 찾지 못했습니다.")
-                progress(80, "변환 미리보기 준비 중")
+                    raise ValueError("1월, 2월 같은 월/분기 값 열을 찾지 못했습니다.")
                 auto_id_columns = [column for column in preview_table.columns if column not in detection.value_columns]
-                converted_preview = HorizontalTableEngine().wide_to_long(
+                progress(80, "목록형 미리보기 준비 중")
+                converted_preview = engine.wide_to_long(
                     preview_table,
                     id_columns=auto_id_columns,
                     value_columns=detection.value_columns,
-                )
+                ).head(10)
                 progress(100, "파일 탑재 미리보기 완료")
                 return preview_table, detection.value_columns, converted_preview.head(10)
 
@@ -1430,12 +1434,11 @@ class LocalApp:
                 auto_id_columns = [str(column) for column in table_frame.columns if column not in detected_value_columns]
                 file_path.set(selected)
                 id_columns_text.set(", ".join(auto_id_columns))
-                status_text.set(
-                    f"자동 감지 값 열: {', '.join(detected_value_columns)} / 미리보기 {len(table_frame)}행 기준"
-                )
+                detected_text = ", ".join(detected_value_columns) if detected_value_columns else "없음"
+                status_text.set(f"미리보기 {len(table_frame)}행 기준 / 목록형 값 열 자동 감지: {detected_text}")
                 self._write_preview_text(preview_text, preview, limit=10)
 
-            self._run_with_progress("가로세로 변환 파일 탑재", job, on_done=apply_loaded, show_success=False)
+            self._run_with_progress("월별표 파일 탑재", job, on_done=apply_loaded, show_success=False)
 
         def cancel() -> None:
             dialog.destroy()
@@ -1446,7 +1449,7 @@ class LocalApp:
                 return
             selected_file = Path(file_path.get())
             manual_id_columns = split_columns(id_columns_text.get())
-            output = self._ask_save_path_or_none("가로세로 변환 결과를 저장할 위치를 선택하세요", "가로세로변환_결과")
+            output = self._ask_save_path_or_none("월별표 목록형 변환 결과를 저장할 위치를 선택하세요", "월별표_목록형변환")
             if not output:
                 return
             dialog.destroy()
@@ -1454,33 +1457,35 @@ class LocalApp:
             def job(progress):
                 progress(10, "원본 파일 전체 읽는 중")
                 full_table = load_table(selected_file)
+                engine = HorizontalTableEngine()
                 progress(45, "월/분기 컬럼 자동 감지 중")
-                detection = HorizontalTableEngine().detect(full_table)
+                detection = engine.detect(full_table)
                 if not detection.value_columns:
                     raise ValueError("월/분기처럼 가로로 펼쳐진 값 열을 찾지 못했습니다.")
                 id_columns = manual_id_columns or [
                     column for column in full_table.columns if column not in detection.value_columns
                 ]
-                progress(65, "세로형 표로 변환 중")
-                converted = HorizontalTableEngine().wide_to_long(
+                progress(65, "목록형 표로 변환 중")
+                converted = engine.wide_to_long(
                     full_table,
                     id_columns=id_columns,
                     value_columns=detection.value_columns,
                 )
+                summary = {
+                    "workflow": "월별표 목록형 변환",
+                    "row_count": len(converted),
+                    "auto_value_columns": ", ".join(detection.value_columns),
+                }
                 result = JobResult(
                     result_frame=converted,
-                    summary={
-                        "workflow": "가로세로 변환",
-                        "row_count": len(converted),
-                        "auto_value_columns": ", ".join(detection.value_columns),
-                    },
+                    summary=summary,
                 )
                 progress(88, "결과 엑셀 저장 중")
                 ReportWriter().write_xlsx(result, output)
                 progress(100, "완료")
                 return [output]
 
-            self._run_with_progress("가로세로 변환", job, open_path=output.parent)
+            self._run_with_progress("월별표 목록형 변환", job, open_path=output.parent)
 
         ttk.Button(file_row, text="파일 선택", command=choose_file).pack(side="left", padx=(8, 0))
 

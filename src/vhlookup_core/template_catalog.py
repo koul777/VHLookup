@@ -56,8 +56,8 @@ def template_usage_frame() -> pd.DataFrame:
                 "추천 명령": "python -m vhlookup_cli.main reconcile --reference expected.xlsx --target received.xlsx --template missing_people_reconciliation --out missing.xlsx",
             },
             {
-                "상황": "월별 가로표 변환",
-                "추천 명령": "python -m vhlookup_cli.main horizontal --file monthly.xlsx --out monthly_long.xlsx",
+                "상황": "월별표 목록형 변환",
+                "추천 명령": "python -m vhlookup_cli.main horizontal --file monthly.xlsx --out monthly_list.xlsx",
             },
         ]
     )
