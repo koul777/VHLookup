@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pandas as pd
@@ -251,7 +252,7 @@ class ConsolidationEngine:
 
         planner = AutoLookupPlanner()
         merger = MergeEngine()
-        for path, sheet_name, table in loaded[1:]:
+        for file_order, (path, sheet_name, table) in enumerate(loaded[1:], start=2):
             reference = table.reset_index(drop=True).copy()
             try:
                 manual_plan = self._mapping_for_file(merge_plans_by_file, path)
@@ -280,7 +281,9 @@ class ConsolidationEngine:
                         output_suffix=f"_{path.stem}",
                     )
                     result = merge_result.result_frame
-                    issues.extend(merge_result.issues)
+                    issues.extend(
+                        self._annotate_column_merge_issues(merge_result.issues, path.name, sheet_name, file_order)
+                    )
                     mapping_records.append(
                         {
                             "역할": "사용자 선택 키 컬럼",
@@ -319,7 +322,9 @@ class ConsolidationEngine:
                     output_suffix=f"_{path.stem}",
                 )
                 result = merge_result.result_frame
-                issues.extend(merge_result.issues)
+                issues.extend(
+                    self._annotate_column_merge_issues(merge_result.issues, path.name, sheet_name, file_order)
+                )
                 for warning in plan.warnings:
                     issues.append(
                         ValidationIssue(
@@ -369,6 +374,26 @@ class ConsolidationEngine:
             "issue_count": len(issues),
         }
         return JobResult(result_frame=result, issues=issues, summary=summary, mapping_records=mapping_records)
+
+    def _annotate_column_merge_issues(
+        self,
+        issues: list[ValidationIssue],
+        file_name: str,
+        sheet_name: str,
+        file_order: int,
+    ) -> list[ValidationIssue]:
+        file_label = f"{file_order}번째 파일({file_name})"
+        annotated: list[ValidationIssue] = []
+        for issue in issues:
+            updates = {"file_name": file_name, "sheet_name": sheet_name}
+            if issue.issue_type == "match_failed":
+                updates["message"] = f"{file_label}에 해당 기준값이 없습니다."
+            elif issue.issue_type == "format_mismatch":
+                updates["message"] = f"{file_label}의 기준값과 표시 형식이 달라 매칭에 실패했습니다."
+            elif issue.issue_type == "reference_duplicate_key_blocked":
+                updates["message"] = f"{file_label}에 같은 기준값이 여러 건 있어 자동 병합하지 않았습니다."
+            annotated.append(replace(issue, **updates))
+        return annotated
 
     def _append_columns_by_position(
         self,

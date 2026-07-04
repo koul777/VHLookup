@@ -68,6 +68,7 @@ class MergeEngine:
             column: self._output_column_name(column, target.columns, output_suffix)
             for column in value_columns
         }
+        output_value_columns = list(rename_map.values())
         lookup_frame = lookup_frame.rename(columns=rename_map)
 
         result = target_with_key.merge(lookup_frame, on="__vh_key", how="left", sort=False)
@@ -82,6 +83,7 @@ class MergeEngine:
                         issue_type="missing_required_key",
                         message="대상표 키 값이 비어 있습니다.",
                         row_number=row_number,
+                        details={"result_columns": output_value_columns},
                     )
                 )
             elif key in duplicate_reference_key_set:
@@ -90,6 +92,7 @@ class MergeEngine:
                         issue_type="reference_duplicate_key_blocked",
                         message="기준표 중복 키로 인해 자동 병합하지 않았습니다.",
                         row_number=row_number,
+                        details={"result_columns": output_value_columns},
                     )
                 )
             elif key not in reference_key_set:
@@ -105,7 +108,7 @@ class MergeEngine:
                             issue_type="format_mismatch",
                             message="값 형식이 달라 매칭에 실패했습니다.",
                             row_number=row_number,
-                            details=mismatch,
+                            details={**mismatch, "result_columns": output_value_columns},
                         )
                     )
                 else:
@@ -114,6 +117,7 @@ class MergeEngine:
                             issue_type="match_failed",
                             message="기준표에 없습니다.",
                             row_number=row_number,
+                            details={"result_columns": output_value_columns},
                         )
                     )
 

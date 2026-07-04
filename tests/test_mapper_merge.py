@@ -39,6 +39,8 @@ def test_merge_lookup_reports_format_mismatch_and_missing_match():
     assert result.result_frame.loc[0, "부서"] == "총무"
     assert pd.isna(result.result_frame.loc[1, "부서"])
     assert {issue.issue_type for issue in result.issues} >= {"format_mismatch", "match_failed"}
+    missing_issue = next(issue for issue in result.issues if issue.issue_type == "match_failed")
+    assert missing_issue.details["result_columns"] == ["부서"]
 
 
 def test_merge_lookup_can_use_loose_numeric_keys():

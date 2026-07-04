@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 from openpyxl import load_workbook
 
@@ -14,6 +16,9 @@ from vhlookup_core.report import (
     SHEET_SUMMARY,
 )
 from vhlookup_core.privacy import PrivacyScanner
+
+
+SAMPLES = Path("samples/public_admin")
 
 
 def test_consolidation_folder_merges_files_with_different_headers(tmp_path):
@@ -114,6 +119,35 @@ def test_column_merge_attaches_columns_by_common_key(tmp_path):
     assert result.result_frame.loc[0, "직급"] == "주무관"
     assert result.summary["workflow"] == "열 방향 파일 합치기"
     assert "키 컬럼" in {row["역할"] for row in result.mapping_records}
+
+
+def test_column_merge_marks_unmatched_attached_cells_with_comment(tmp_path):
+    output = tmp_path / "result.xlsx"
+    file_one = SAMPLES / "hr_employee_master.csv"
+    file_two = SAMPLES / "hr_training_completion.csv"
+
+    result = ConsolidationEngine().merge_files_by_columns([file_one, file_two])
+    ReportWriter().write_xlsx(result, output)
+
+    assert len(result.result_frame) == 3
+    assert result.result_frame.loc[2, "사번"] == "00125"
+    assert pd.isna(result.result_frame.loc[2, "교육명"])
+    issue = next(issue for issue in result.issues if issue.issue_type == "match_failed")
+    assert issue.message == "2번째 파일(hr_training_completion.csv)에 해당 기준값이 없습니다."
+
+    workbook = load_workbook(output)
+    result_sheet = workbook[SHEET_RESULT]
+    headers = [cell.value for cell in result_sheet[1]]
+    education_column = headers.index("교육명") + 1
+    base_column = headers.index("직급") + 1
+    missing_cell = result_sheet.cell(row=4, column=education_column)
+    base_cell = result_sheet.cell(row=4, column=base_column)
+
+    assert missing_cell.value is None
+    assert missing_cell.fill.fgColor.rgb in {"00FCA5A5", "FCA5A5"}
+    assert missing_cell.comment is not None
+    assert "2번째 파일(hr_training_completion.csv)에 해당 기준값이 없습니다." in missing_cell.comment.text
+    assert base_cell.comment is None
 
 
 def test_report_writer_extracts_error_rows(tmp_path):

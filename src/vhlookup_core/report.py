@@ -53,7 +53,7 @@ ISSUE_ACTIONS = {
     "auto_inference_warning": "자동 추천된 키 컬럼과 가져올 컬럼이 맞는지 미리보기에서 확인하세요.",
     "file_processing_failed": "암호, 손상, 지원하지 않는 파일 형식인지 확인한 뒤 다시 처리하세요.",
     "format_mismatch": "사번, 날짜, 금액처럼 앞자리 0이나 표시 형식이 다른 컬럼을 같은 형식으로 맞추세요.",
-    "match_failed": "기준표에 해당 대상이 실제로 있는지 확인하세요.",
+    "match_failed": "붙일 파일에 해당 행이 없으면 빈 셀로 남는 것이 정상입니다. 기준값이 맞는지 확인하세요.",
     "missing_required_key": "키 컬럼의 빈 값을 채운 뒤 다시 실행하세요.",
     "reference_duplicate_key": "기준표에서 같은 키가 여러 건인 행을 먼저 정리하세요.",
     "reference_duplicate_key_blocked": "중복 키는 잘못 붙을 수 있어 자동 병합하지 않았습니다.",
@@ -191,7 +191,7 @@ class ReportWriter:
                 "파일명": issue.file_name,
                 "시트명": issue.sheet_name,
                 "원본 행 번호": issue.row_number,
-                "컬럼명": issue.column_name,
+                "컬럼명": self._issue_column_text(issue),
                 "우선 조치": ISSUE_ACTIONS.get(issue.issue_type, "원본 자료와 매핑 설정을 확인하세요."),
             }
             if include_sensitive_details:
@@ -222,7 +222,7 @@ class ReportWriter:
                     "파일명": issue.file_name,
                     "시트명": issue.sheet_name,
                     "원본 행 번호": issue.row_number,
-                    "컬럼명": issue.column_name,
+                    "컬럼명": self._issue_column_text(issue),
                 }
                 row.update(result.result_frame.loc[index].to_dict())
                 rows.append(row)
@@ -280,6 +280,7 @@ class ReportWriter:
 
         for issue in result.issues:
             indices = self._matching_result_indices(result.result_frame, issue)
+            columns_to_mark = self._issue_columns_to_mark(issue)
             message = (
                 f"확인 필요: {ISSUE_LABELS.get(issue.issue_type, issue.issue_type)}\n"
                 f"{issue.message}\n"
@@ -288,6 +289,16 @@ class ReportWriter:
             if indices:
                 for index in indices:
                     excel_row = int(index) + 2
+                    if columns_to_mark:
+                        marked = False
+                        for column_name in columns_to_mark:
+                            column_index = self._find_column_index(sheet, column_name)
+                            if column_index is None:
+                                continue
+                            self._mark_cell(sheet.cell(row=excel_row, column=column_index), issue_fill, message)
+                            marked = True
+                        if marked:
+                            continue
                     if issue.column_name:
                         column_index = self._find_column_index(sheet, issue.column_name)
                         if column_index is not None:
@@ -300,6 +311,28 @@ class ReportWriter:
                 column_index = self._find_column_index(sheet, issue.column_name)
                 if column_index is not None:
                     self._mark_column(sheet, column_index, issue_fill, message, max_cell_comments=10)
+
+    def _issue_columns_to_mark(self, issue) -> list[str]:
+        columns: list[str] = []
+        if issue.column_name:
+            columns.append(str(issue.column_name))
+        result_columns = issue.details.get("result_columns") if isinstance(issue.details, dict) else None
+        if isinstance(result_columns, (list, tuple)):
+            columns.extend(str(column) for column in result_columns if str(column).strip())
+        seen: set[str] = set()
+        unique_columns: list[str] = []
+        for column in columns:
+            if column in seen:
+                continue
+            seen.add(column)
+            unique_columns.append(column)
+        return unique_columns
+
+    def _issue_column_text(self, issue) -> str | None:
+        columns = self._issue_columns_to_mark(issue)
+        if not columns:
+            return None
+        return ", ".join(columns)
 
     def _privacy_summary_text(self, records: list[dict[str, object]]) -> str:
         if not records:
