@@ -9,6 +9,29 @@
 
 GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을 포함하지 않습니다. exe 파일은 GitHub Release 첨부파일로 배포합니다.
 
+### 다운로드가 차단될 때
+
+Windows 또는 Microsoft Edge에서 `일반적으로 다운로드되지 않음`, `다운로드할 수 없음`, SmartScreen 경고가 나올 수 있습니다. 현재 실행파일은 새로 빌드한 서명되지 않은 exe라서 Microsoft 평판 정보가 충분하지 않을 수 있습니다.
+
+- 공유하거나 안내할 때, Microsoft 피드백이나 오탐 신고를 할 때는 긴 `release-assets.githubusercontent.com/...` 주소를 사용하지 않습니다. 이 주소는 GitHub가 다운로드 순간에 발급하는 임시 주소라 시간이 지나면 만료됩니다.
+- 공식 다운로드 주소는 위의 `최신 Windows 실행파일 다운로드` 또는 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)입니다.
+- 내려받은 파일명이 `VHLookupLocal_pivot.exe`인지 확인합니다.
+- 파일을 실행하기 전에 PowerShell에서 SHA256을 확인할 수 있습니다.
+
+```powershell
+Get-FileHash .\VHLookupLocal_pivot.exe -Algorithm SHA256
+```
+
+현재 Release 기준 SHA256은 아래와 같습니다.
+
+```text
+4CADBF4C935D839B2561DB3D01F347FB0B997697DD8DC47EB5D6A714B362C752
+```
+
+공식 Release에서 받은 파일이고 SHA256이 일치하면 Edge 다운로드 목록에서 `유지` 또는 `그래도 유지`를 선택할 수 있습니다. 실행 시 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다.
+
+장기적으로는 실행파일에 코드 서명 인증서를 적용해야 이런 경고가 줄어듭니다.
+
 ## 실행 화면
 
 ![VHLookup Local 첫 화면](docs/assets/vhlookup-local-main.jpg)
