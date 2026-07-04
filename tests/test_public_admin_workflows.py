@@ -43,9 +43,6 @@ def test_school_submission_sample_consolidates_with_template():
 
     assert len(result.result_frame) == 4
     assert list(result.result_frame.columns) == [
-        "원본 파일명",
-        "원본 시트명",
-        "원본 행 번호",
         "기관명",
         "기관코드",
         "담당자",
@@ -182,6 +179,35 @@ def test_column_merge_samples_use_loose_numeric_and_composite_keys():
     } == {("사번", "직원번호"), ("지급월", "지급월")}
 
 
+def test_merge_mode_recommendation_distinguishes_row_and_column_samples():
+    engine = ConsolidationEngine()
+
+    assert engine.recommend_merge_mode(
+        [
+            MERGE_SAMPLES / "row_merge_school_submissions" / "gangbuk_school.csv",
+            MERGE_SAMPLES / "row_merge_school_submissions" / "gangnam_school.csv",
+        ]
+    ) == "rows"
+    assert engine.recommend_merge_mode(
+        [
+            MERGE_SAMPLES / "row_merge_messy_headers" / "department_status_a.csv",
+            MERGE_SAMPLES / "row_merge_messy_headers" / "department_status_b.csv",
+        ]
+    ) == "rows"
+    assert engine.recommend_merge_mode(
+        [
+            HR_SAMPLES / "hr_employee_master.csv",
+            HR_SAMPLES / "hr_training_completion.csv",
+        ]
+    ) == "columns"
+    assert engine.recommend_merge_mode(
+        [
+            ALLOWANCE_SAMPLES / "payment_requests.csv",
+            ALLOWANCE_SAMPLES / "rate_reference.csv",
+        ]
+    ) == "columns"
+
+
 def test_submission_reconciliation_sample_finds_missing_and_unknown_submitters():
     expected = _load_table(EXTRA_SAMPLES / "submission_reconciliation" / "expected_submitters.csv")
     received = _load_table(EXTRA_SAMPLES / "submission_reconciliation" / "received_submitters.csv")
@@ -211,6 +237,6 @@ def test_messy_header_department_status_sample_consolidates():
     )
 
     assert len(result.result_frame) == 4
-    assert list(result.result_frame.columns) == ["원본 파일명", "원본 시트명", "원본 행 번호", "부서", "담당자", "연락처", "기준일", "현원", "비고"]
+    assert list(result.result_frame.columns) == ["부서", "담당자", "연락처", "기준일", "현원", "비고"]
     assert set(result.result_frame["부서"]) == {"총무과", "인사과", "예산과", "기획과"}
     assert not [issue for issue in result.issues if issue.severity == "error"]

@@ -25,7 +25,7 @@ Get-FileHash .\VHLookupLocal_pivot.exe -Algorithm SHA256
 현재 Release 기준 SHA256은 아래와 같습니다.
 
 ```text
-507E2D918609A12A4E498DD235ADF0AE4F35E792CCE6938835628E32CD8196A2
+CEF31FCC1C2F9299F8F604E548F24DE1DA57BB0E609746D2B1D35A973C5F222C
 ```
 
 공식 Release에서 받은 파일이고 SHA256이 일치하면 Edge 다운로드 목록에서 `유지` 또는 `그래도 유지`를 선택할 수 있습니다. 실행 시 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다.
@@ -53,6 +53,7 @@ Edge에서 다운로드가 막히는 경우 아래 화면처럼 진행합니다.
 - 전/후 파일 검증에서 컬럼명이 바뀐 경우, 추가 행, 빠진 행, 값 변경을 함께 표시합니다.
 - 피벗 요약표 숫자는 천 단위 콤마와 최대 소수 2자리로 보기 좋게 표시합니다.
 - 결과 엑셀은 첫 시트를 실제 결과로 두고, 보조 설명은 `확인사항` 시트 한 장으로 단순화했습니다.
+- 합치기 방향은 기본 `자동 선택`으로 두고, 결과 저장 위치는 사용자가 저장 창에서 직접 고릅니다.
 
 [2026-07-04 상세 변경 내역 보기](docs/update_notes_2026-07-04.md)
 
@@ -67,7 +68,7 @@ dist\VHLookupLocal_pivot.exe
 - 로컬 PC에서만 실행
 - 원본 엑셀/CSV 파일 미수정
 - 별도 서버, API, 클라우드 업로드 없음
-- 결과 파일은 `outputs` 폴더에 새 엑셀 파일로 저장
+- 실행할 때 Windows 저장 창에서 결과 파일 위치와 이름을 직접 선택
 - 컬럼명이 달라도 자동 추천 후 사용자가 드롭박스로 수정 가능
 - 개인정보 의심 컬럼은 값이 아니라 유형과 건수 중심으로 점검
 
@@ -100,12 +101,14 @@ dist\VHLookupLocal_pivot.exe
 
 - `행 합치기`: 같은 양식의 여러 파일을 아래로 이어 붙임
 - `열 합치기`: 공통 키를 찾아 다른 파일의 열을 오른쪽에 붙임
+- 기본값은 `자동 선택`이며 파일 구조를 보고 행/열 합치기를 추천
 - 컬럼명이 달라도 동의어, 이름 유사도, 실제 값 겹침으로 자동 매칭
 - `사번`과 `직원번호`, `관리번호`와 `접수ID`처럼 이름이 달라도 값이 충분히 겹치면 키 후보로 추천
 - `00123`과 `123`처럼 앞자리 0 표시가 다른 숫자형 키도 같은 대상으로 비교
 - 월별 지급자료처럼 단일 열만으로 중복되는 경우 `사번 + 지급월` 같은 복합 키 자동 추천
 - 어느 한쪽에만 있는 기준값도 행을 삭제하지 않고 결과에 남김
 - 한쪽 파일에만 있는 행이나 열은 빈 칸에 노란색과 메모로 표시
+- 결과 첫 시트에는 원본 파일명, 원본 시트명, 원본 행 번호 같은 내부 추적 컬럼을 표시하지 않음
 - 자동 매칭이 틀리면 `컬럼 매칭 수정`에서 드롭박스로 직접 지정
 - 미리보기에서 앞 10행 확인 후 실행
 
@@ -143,7 +146,8 @@ dist\VHLookupLocal_pivot.exe
 4. 미리보기에서 예상 결과를 확인합니다.
 5. 자동 추천이 틀리면 드롭박스에서 컬럼 매칭이나 기준 열을 수정합니다.
 6. `실행`을 누릅니다.
-7. 결과는 `outputs` 폴더에 저장되고 완료 후 폴더가 열립니다.
+7. 저장 창에서 결과 파일을 저장할 폴더와 파일명을 선택합니다.
+8. 저장이 끝나면 선택한 결과 폴더가 열립니다.
 
 ## 샘플 데이터
 
@@ -196,7 +200,7 @@ samples\public_admin
 - 선택할 파일:
   - `samples\public_admin\03_merge_files\row_merge_school_submissions\gangbuk_school.csv`
   - `samples\public_admin\03_merge_files\row_merge_school_submissions\gangnam_school.csv`
-- 화면 선택값: 합치기 방향 `행 합치기`
+- 화면 선택값: 합치기 방향 `자동 선택` 또는 `행 합치기`
 - 결과에서 먼저 볼 시트: `결과`
 - 그 다음 참고 시트: `확인사항`
 
@@ -206,7 +210,7 @@ samples\public_admin
 - 선택할 파일:
   - `samples\public_admin\03_merge_files\row_merge_messy_headers\department_status_a.csv`
   - `samples\public_admin\03_merge_files\row_merge_messy_headers\department_status_b.csv`
-- 화면 선택값: 합치기 방향 `행 합치기`
+- 화면 선택값: 합치기 방향 `자동 선택` 또는 `행 합치기`
 - 결과에서 먼저 볼 시트: `결과`
 - 그 다음 참고 시트: `확인사항`
 
@@ -216,7 +220,7 @@ samples\public_admin
 - 선택할 파일:
   - `samples\public_admin\03_merge_files\column_merge_hr_training\hr_training_completion.csv`
   - `samples\public_admin\03_merge_files\column_merge_hr_training\hr_employee_master.csv`
-- 화면 선택값: 합치기 방향 `열 합치기`, 자동 매칭 확인
+- 화면 선택값: 합치기 방향 `자동 선택` 또는 `열 합치기`, 자동 매칭 확인
 - 결과에서 먼저 볼 시트: `결과`
 - 그 다음 참고 시트: `확인사항`
 
@@ -226,7 +230,7 @@ samples\public_admin
 - 선택할 파일:
   - `samples\public_admin\03_merge_files\column_merge_allowance_budget\payment_requests.csv`
   - `samples\public_admin\03_merge_files\column_merge_allowance_budget\rate_reference.csv`
-- 화면 선택값: 합치기 방향 `열 합치기`, 자동 매칭 확인
+- 화면 선택값: 합치기 방향 `자동 선택` 또는 `열 합치기`, 자동 매칭 확인
 - 결과에서 먼저 볼 시트: `결과`
 - 그 다음 참고 시트: `확인사항`
 
@@ -262,13 +266,7 @@ samples\public_admin
 
 ## 결과 파일
 
-결과 파일은 기본적으로 아래 폴더에 생성됩니다.
-
-```text
-dist\outputs
-```
-
-개발 환경에서 직접 실행하면 프로젝트 루트의 `outputs` 폴더에 저장될 수 있습니다.
+결과 파일은 실행할 때 뜨는 저장 창에서 사용자가 선택한 위치에 생성됩니다. 저장 창에서 취소하면 결과 파일을 만들지 않습니다.
 
 자주 보는 시트:
 

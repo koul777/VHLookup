@@ -43,7 +43,7 @@ def test_consolidation_folder_merges_files_with_different_headers(tmp_path):
     )
 
     assert len(result.result_frame) == 2
-    assert list(result.result_frame.columns) == ["원본 파일명", "원본 시트명", "원본 행 번호", "사번", "성명", "부서"]
+    assert list(result.result_frame.columns) == ["사번", "성명", "부서"]
     assert set(result.result_frame["성명"]) == {"홍길동", "김영희"}
 
 

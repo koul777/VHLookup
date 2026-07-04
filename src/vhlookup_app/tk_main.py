@@ -286,6 +286,7 @@ class LocalApp:
         self.base_dir = app_base_dir()
         self.output_dir = self.base_dir / "outputs"
         self.output_dir.mkdir(exist_ok=True)
+        self.last_output_dir = self.output_dir
 
         style = ttk.Style()
         style.theme_use("clam")
@@ -338,7 +339,7 @@ class LocalApp:
         self._action_button(
             actions,
             "3. 엑셀/CSV 파일 여러 개 합치기",
-            "행 합치기 또는 열 합치기를 선택하고, 합쳐진 결과를 첫 시트로 만듭니다.",
+            "파일 구조를 보고 행/열 합치기를 자동 추천하고, 합쳐진 결과를 첫 시트로 만듭니다.",
             self.quick_consolidate,
         )
         self._action_button(
@@ -372,7 +373,7 @@ class LocalApp:
         bottom = ttk.Frame(top, style="App.TFrame")
         bottom.pack(fill="x", pady=(8, 0))
         ttk.Label(bottom, textvariable=self.status, style="Status.TLabel").pack(side="left")
-        ttk.Button(bottom, text="결과 폴더 열기", command=lambda: self.open_folder(self.output_dir)).pack(side="right")
+        ttk.Button(bottom, text="최근 저장 폴더 열기", command=lambda: self.open_folder(self.last_output_dir)).pack(side="right")
 
     def _action_button(self, parent, title: str, description: str, command) -> None:
         row = ttk.Frame(parent, padding=(8, 7), style="Action.TFrame")
@@ -387,6 +388,22 @@ class LocalApp:
     def _timestamped_output(self, base_name: str) -> Path:
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return self.output_dir / f"{base_name}_{stamp}.xlsx"
+
+    def _ask_save_path_or_none(self, title: str, base_name: str) -> Path | None:
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        selected = filedialog.asksaveasfilename(
+            title=title,
+            initialdir=self.output_dir,
+            initialfile=f"{base_name}_{stamp}.xlsx",
+            defaultextension=".xlsx",
+            filetypes=[("Excel", "*.xlsx")],
+        )
+        if not selected:
+            return None
+        output = Path(selected)
+        if output.suffix.lower() != ".xlsx":
+            output = output.with_suffix(".xlsx")
+        return output
 
     def _ask_folder_or_none(self, title: str) -> Path | None:
         selected = filedialog.askdirectory(title=title, initialdir=self.base_dir)
@@ -412,13 +429,15 @@ class LocalApp:
         file_path = self._ask_file_or_none("개인정보를 마스킹할 엑셀/CSV 파일을 선택하세요")
         if not file_path:
             return
+        output = self._ask_save_path_or_none("마스킹 결과를 저장할 위치를 선택하세요", "개인정보_마스킹결과")
+        if not output:
+            return
 
         def job():
-            output = self._timestamped_output("개인정보_마스킹결과")
             PrivacyMaskingEngine().write_xlsx(file_path, output)
             return [output]
 
-        self._run("개인정보 마스킹", job, open_path=self.output_dir)
+        self._run("개인정보 마스킹", job, open_path=output.parent)
 
     def quick_split_sheets(self) -> None:
         file_path = self._ask_file_or_none("분류별로 나눌 엑셀/CSV 파일을 선택하세요")
@@ -441,15 +460,17 @@ class LocalApp:
         )
         if not selected_column:
             return
+        output = self._ask_save_path_or_none("분류별 시트 결과를 저장할 위치를 선택하세요", "분류별_시트나누기")
+        if not output:
+            return
 
         def job():
-            output = self._timestamped_output("분류별_시트나누기")
             split_result = tools.write_split_workbook(file_path, output, selected_column)
             self.log_insert(f"분류 기준 열: {split_result.split_column}")
             self.log_insert(f"생성 시트 수: {split_result.sheet_count}")
             return [output]
 
-        self._run("분류별 시트 나누기", job, open_path=self.output_dir)
+        self._run("분류별 시트 나누기", job, open_path=output.parent)
 
     def _choose_column_dialog(
         self,
@@ -883,7 +904,8 @@ class LocalApp:
         dialog.grab_set()
 
         files: list[Path] = []
-        merge_mode = StringVar(value="rows")
+        merge_mode = StringVar(value="auto")
+        mode_status = StringVar(value="자동 선택: 파일을 올리면 행/열 합치기를 추천합니다.")
         manual_row_mappings: dict[str, dict[str, str]] | None = None
         manual_column_plans: dict[str, dict[str, object]] | None = None
 
@@ -938,16 +960,23 @@ class LocalApp:
         mode_frame.pack(fill="x")
         ttk.Radiobutton(
             mode_frame,
+            text="자동 선택: 파일 구조를 보고 행/열 합치기를 고릅니다.",
+            value="auto",
+            variable=merge_mode,
+        ).pack(anchor="w")
+        ttk.Radiobutton(
+            mode_frame,
             text="행 합치기: 같은 양식의 여러 파일을 아래로 이어 붙입니다.",
             value="rows",
             variable=merge_mode,
-        ).pack(anchor="w")
+        ).pack(anchor="w", pady=(4, 0))
         ttk.Radiobutton(
             mode_frame,
             text="열 합치기: 공통 키를 찾아 다른 파일의 열을 오른쪽에 붙입니다.",
             value="columns",
             variable=merge_mode,
         ).pack(anchor="w", pady=(4, 0))
+        ttk.Label(mode_frame, textvariable=mode_status, foreground="#374151").pack(anchor="w", pady=(8, 0))
 
         preview_box = ttk.LabelFrame(frame, text="미리보기", padding=8)
         preview_box.pack(fill="both", expand=True, pady=(10, 0))
@@ -965,10 +994,19 @@ class LocalApp:
             state="disabled",
         )
 
+        def effective_merge_mode() -> str:
+            selected = merge_mode.get()
+            if selected != "auto":
+                return selected
+            if len(files) < 2:
+                return "rows"
+            return ConsolidationEngine().recommend_merge_mode(files)
+
         def build_preview_frame() -> pd.DataFrame:
             if not files:
                 return pd.DataFrame([{"안내": "파일 올리기를 눌러 합칠 파일을 선택하세요."}])
-            if merge_mode.get() == "columns":
+            mode = effective_merge_mode()
+            if mode == "columns":
                 result = ConsolidationEngine().merge_files_by_columns(files, merge_plans_by_file=manual_column_plans)
             else:
                 result = ConsolidationEngine().consolidate_files(
@@ -982,6 +1020,11 @@ class LocalApp:
 
         def refresh_preview() -> None:
             try:
+                if files:
+                    mode = effective_merge_mode()
+                    mode_status.set("자동 선택 결과: 열 합치기" if mode == "columns" else "자동 선택 결과: 행 합치기")
+                else:
+                    mode_status.set("자동 선택: 파일을 올리면 행/열 합치기를 추천합니다.")
                 self._write_preview_text(preview_text, build_preview_frame(), limit=10)
             except Exception as exc:
                 self._write_preview_text(preview_text, pd.DataFrame([{"미리보기 오류": str(exc)}]), limit=10)
@@ -993,7 +1036,7 @@ class LocalApp:
             if not files:
                 messagebox.showwarning(APP_TITLE, "먼저 합칠 파일을 올려주세요.")
                 return
-            if merge_mode.get() == "columns":
+            if effective_merge_mode() == "columns":
                 selected = self._confirm_column_merge_preview(files)
                 if selected is not None:
                     manual_column_plans = selected
@@ -1014,7 +1057,13 @@ class LocalApp:
                 messagebox.showwarning(APP_TITLE, "먼저 합칠 파일을 올려주세요.")
                 return
             selected_files = list(files)
-            selected_mode = merge_mode.get()
+            selected_mode = effective_merge_mode()
+            output = self._ask_save_path_or_none(
+                "합치기 결과를 저장할 위치를 선택하세요",
+                "파일열합치기_결과" if selected_mode == "columns" else "파일행합치기_결과",
+            )
+            if not output:
+                return
             dialog.destroy()
 
             def job():
@@ -1023,19 +1072,17 @@ class LocalApp:
                         selected_files,
                         merge_plans_by_file=manual_column_plans,
                     )
-                    output = self._timestamped_output("파일열합치기_결과")
                 else:
                     result = ConsolidationEngine().consolidate_files(
                         selected_files,
                         template=None,
                         saved_mappings_by_file=manual_row_mappings,
                     )
-                    output = self._timestamped_output("파일행합치기_결과")
                 ReportWriter().write_xlsx(result, output, mark_result_cells=True)
                 return [output]
 
             label = "열 방향 파일 합치기" if selected_mode == "columns" else "행 방향 파일 합치기"
-            self._run(label, job, open_path=self.output_dir)
+            self._run(label, job, open_path=output.parent)
 
         ttk.Button(run_row, text="미리보기 새로고침", command=refresh_preview).pack(side="left")
         ttk.Button(run_row, text="컬럼 매칭 수정", command=edit_mapping).pack(side="left", padx=(8, 0))
@@ -1163,8 +1210,11 @@ class LocalApp:
                 return
             before_path = Path(before_file.get())
             after_path = Path(after_file.get())
-            dialog.destroy()
             preview_settings = current_preview_settings()
+            output = self._ask_save_path_or_none("전/후 검증 결과를 저장할 위치를 선택하세요", "전후파일_검증결과")
+            if not output:
+                return
+            dialog.destroy()
 
             def job():
                 result = WorkbookDiffEngine().compare_files(
@@ -1173,11 +1223,10 @@ class LocalApp:
                     column_mapping_override=preview_settings["mapping"],
                     key_columns=preview_settings["key_columns"],
                 )
-                output = self._timestamped_output("전후파일_검증결과")
                 WorkbookDiffReportWriter().write_xlsx(result, output)
                 return [output]
 
-            self._run("전/후 파일 검증", job, open_path=self.output_dir)
+            self._run("전/후 파일 검증", job, open_path=output.parent)
 
         ttk.Button(button_row, text="미리보기 새로고침", command=refresh_preview).pack(side="left")
         ttk.Button(button_row, text="컬럼 매칭 수정", command=edit_mapping).pack(side="left", padx=(8, 0))
@@ -1355,10 +1404,12 @@ class LocalApp:
             selected_column = selected_column_value()
             selected_value = selected_value_column()
             selected_aggregation = aggregation.get()
+            output = self._ask_save_path_or_none("피벗 요약표 결과를 저장할 위치를 선택하세요", "피벗요약표_결과")
+            if not output:
+                return
             dialog.destroy()
 
             def job():
-                output = self._timestamped_output("피벗요약표_결과")
                 tools.write_pivot_workbook(
                     selected_file,
                     output,
@@ -1369,7 +1420,7 @@ class LocalApp:
                 )
                 return [output]
 
-            self._run("피벗 요약표 만들기", job, open_path=self.output_dir)
+            self._run("피벗 요약표 만들기", job, open_path=output.parent)
 
         ttk.Button(button_row, text="미리보기 새로고침", command=refresh_preview).pack(side="left")
         ttk.Button(button_row, text="취소", command=cancel).pack(side="right")
@@ -1385,6 +1436,9 @@ class LocalApp:
         target = self._ask_file_or_none("값을 붙일 대상 파일을 선택하세요")
         if not target:
             return
+        output = self._ask_save_path_or_none("값 붙이기 결과를 저장할 위치를 선택하세요", "기준표_값붙이기")
+        if not output:
+            return
 
         def job():
             reference_frame = load_table(reference)
@@ -1392,11 +1446,10 @@ class LocalApp:
             plan = AutoLookupPlanner().infer_lookup_plan(reference_frame, target_frame)
             result = MergeEngine().merge_lookup(reference_frame, target_frame, plan.key_spec, list(plan.value_columns))
             attach_auto_summary(result, plan, "기준표에서 값 붙이기")
-            output = self._timestamped_output("기준표_값붙이기")
             ReportWriter().write_xlsx(result, output)
             return [output]
 
-        self._run("기준표 값 붙이기", job, open_path=self.output_dir)
+        self._run("기준표 값 붙이기", job, open_path=output.parent)
 
     def quick_reconcile(self) -> None:
         reference = self._ask_file_or_none("기준 명단 파일을 선택하세요")
@@ -1405,6 +1458,9 @@ class LocalApp:
         target = self._ask_file_or_none("비교할 제출/이수 명단 파일을 선택하세요")
         if not target:
             return
+        output = self._ask_save_path_or_none("누락 확인 결과를 저장할 위치를 선택하세요", "누락확인_결과")
+        if not output:
+            return
 
         def job():
             reference_frame = load_table(reference)
@@ -1412,15 +1468,17 @@ class LocalApp:
             plan = AutoLookupPlanner().infer_reconciliation_key_spec(reference_frame, target_frame)
             result = ReconciliationEngine().compare_lists(reference_frame, target_frame, plan.key_spec)
             attach_auto_summary(result, plan, "빠진 사람/누락자료 찾기")
-            output = self._timestamped_output("누락확인_결과")
             ReportWriter().write_xlsx(result, output)
             return [output]
 
-        self._run("빠진 사람/기관 찾기", job, open_path=self.output_dir)
+        self._run("빠진 사람/기관 찾기", job, open_path=output.parent)
 
     def quick_horizontal(self) -> None:
         file_path = self._ask_file_or_none("월별 가로표 파일을 선택하세요")
         if not file_path:
+            return
+        output = self._ask_save_path_or_none("가로표 변환 결과를 저장할 위치를 선택하세요", "월별가로표_세로변환")
+        if not output:
             return
 
         def job():
@@ -1433,11 +1491,10 @@ class LocalApp:
                 result_frame=converted,
                 summary={"workflow": "월별 가로표 세로 변환", "row_count": len(converted)},
             )
-            output = self._timestamped_output("월별가로표_세로변환")
             ReportWriter().write_xlsx(result, output)
             return [output]
 
-        self._run("월별 가로표 세로 변환", job, open_path=self.output_dir)
+        self._run("월별 가로표 세로 변환", job, open_path=output.parent)
 
     def _build_consolidate_tab(self, notebook: ttk.Notebook) -> None:
         frame = ttk.Frame(notebook, padding=12)
@@ -1608,6 +1665,8 @@ class LocalApp:
             self.log_insert(f"[완료] {label}")
             for output in outputs:
                 self.log_insert(f"  - {output}")
+            if outputs:
+                self.last_output_dir = Path(outputs[0]).parent
             self.status.set(f"{label} 완료")
             if open_path:
                 self.open_folder(open_path)

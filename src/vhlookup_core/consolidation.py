@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 
@@ -32,6 +33,41 @@ class ConsolidationEngine:
         self.sheet_detector = sheet_detector or SheetDetector(self.header_detector)
         self.mapper = mapper or ColumnMapper()
         self.validation_engine = validation_engine or ValidationEngine()
+
+    def recommend_merge_mode(
+        self,
+        files: list[str | Path],
+        scan_rows: int | str = 30,
+    ) -> Literal["rows", "columns"]:
+        loaded: list[pd.DataFrame] = []
+        for file in files:
+            try:
+                source = self.loader.load(Path(file))
+                sheet = self.sheet_detector.select(source)
+                detection = self.header_detector.detect(sheet, scan_rows=scan_rows)
+                loaded.append(self.header_detector.apply(sheet, detection))
+            except Exception:
+                return "rows"
+        if len(loaded) < 2:
+            return "rows"
+
+        base = loaded[0]
+        planner = AutoLookupPlanner(mapper=self.mapper)
+        column_like_count = 0
+        for table in loaded[1:]:
+            schema_mapping = self.mapper.map_columns(list(table.columns), list(base.columns), threshold=0.70)
+            schema_ratio = len(schema_mapping.source_to_target) / max(len(table.columns), len(base.columns), 1)
+            if schema_ratio >= 0.70:
+                return "rows"
+            try:
+                plan = planner.infer_lookup_plan(table, base)
+            except Exception:
+                return "rows"
+            if plan.confidence < 0.55 or not plan.value_columns:
+                return "rows"
+            column_like_count += 1
+
+        return "columns" if column_like_count == len(loaded) - 1 else "rows"
 
     def consolidate_folder(
         self,
@@ -168,11 +204,13 @@ class ConsolidationEngine:
         if not result.empty:
             issues.extend(self.validation_engine.validate_frame(result, validation_profile))
             issues.extend(self._one_sided_column_issues(result, produced_columns_by_file, sheet_by_file))
+            issues = self._attach_result_indices(result, issues)
+        public_result = self._drop_tracking_columns(result)
         summary = {
             "workflow": workflow_template.name if workflow_template else "사용자 지정 수합",
             "file_count": len(files),
             "successful_file_count": len(frames),
-            "row_count": len(result),
+            "row_count": len(public_result),
             "issue_count": len(issues),
             "validation_issue_count": sum(
                 1
@@ -188,7 +226,7 @@ class ConsolidationEngine:
             ),
             "mapped_column_count": mapping_count,
         }
-        return JobResult(result_frame=result, issues=issues, summary=summary, mapping_records=mapping_records)
+        return JobResult(result_frame=public_result, issues=issues, summary=summary, mapping_records=mapping_records)
 
     def merge_files_by_columns(
         self,
@@ -441,6 +479,49 @@ class ConsolidationEngine:
                     )
                 )
         return issues
+
+    def _drop_tracking_columns(self, frame: pd.DataFrame) -> pd.DataFrame:
+        tracking_columns = ["원본 파일명", "원본 시트명", "원본 행 번호"]
+        return frame.drop(columns=[column for column in tracking_columns if column in frame.columns])
+
+    def _attach_result_indices(
+        self,
+        result: pd.DataFrame,
+        issues: list[ValidationIssue],
+    ) -> list[ValidationIssue]:
+        if result.empty:
+            return issues
+        annotated: list[ValidationIssue] = []
+        for issue in issues:
+            if isinstance(issue.details, dict) and "result_indices" in issue.details:
+                annotated.append(issue)
+                continue
+            indices = self._matching_tracking_indices(result, issue)
+            if not indices:
+                annotated.append(issue)
+                continue
+            details = dict(issue.details)
+            details["result_indices"] = indices
+            annotated.append(replace(issue, details=details))
+        return annotated
+
+    def _matching_tracking_indices(self, result: pd.DataFrame, issue: ValidationIssue) -> list[int]:
+        if issue.row_number is None:
+            return []
+        mask = pd.Series(True, index=result.index)
+        matched = False
+        if "원본 행 번호" in result.columns:
+            mask &= result["원본 행 번호"].astype(str) == str(issue.row_number)
+            matched = True
+        if issue.file_name and "원본 파일명" in result.columns:
+            mask &= result["원본 파일명"].astype(str) == str(issue.file_name)
+            matched = True
+        if issue.sheet_name and "원본 시트명" in result.columns:
+            mask &= result["원본 시트명"].astype(str) == str(issue.sheet_name)
+            matched = True
+        if not matched:
+            return []
+        return [int(index) for index in result.index[mask]]
 
     def _append_columns_by_position(
         self,
