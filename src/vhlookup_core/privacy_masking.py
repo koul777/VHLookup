@@ -23,14 +23,33 @@ SHEET_RECORDS = "마스킹내역"
 NAME_HEADERS = ("성명", "이름", "직원명", "담당자", "담당자명", "대상자명", "신청자명", "예금주")
 PHONE_HEADERS = ("연락처", "전화번호", "휴대폰", "핸드폰", "내선번호", "phone", "mobile")
 EMAIL_HEADERS = ("이메일", "메일", "email", "e-mail")
-RRN_HEADERS = ("주민등록", "주민번호", "외국인등록", "rrn")
+RRN_HEADERS = ("주민등록", "주민번호", "외국인등록", "외국인번호", "고유식별", "rrn")
 ACCOUNT_HEADERS = ("계좌", "계좌번호", "account")
 ADDRESS_HEADERS = ("주소", "거주지", "소재지", "address")
 ID_HEADERS = ("사번", "직원번호", "학번", "회원번호", "employeeid", "employee_id")
+GENDER_HEADERS = ("성별", "남녀", "gender", "sex")
+AGE_HEADERS = ("나이", "연령", "만나이", "age")
+BIRTHDATE_HEADERS = ("생년월일", "생년", "생일", "출생일", "출생연월일", "birth", "birthday", "dateofbirth", "dob")
 
-RRN_RE = re.compile(r"(?<!\d)(\d{6})-?([1-4])(\d{6})(?!\d)")
+RRN_RE = re.compile(r"(?<!\d)(\d{6})-?([1-8])(\d{6})(?!\d)")
 PHONE_RE = re.compile(r"(?<!\d)(0\d{1,2})-?(\d{3,4})-?(\d{4})(?!\d)")
 EMAIL_RE = re.compile(r"([\w.+-]+)@([\w-]+(?:\.[\w-]+)+)")
+BIRTHDATE_KEYWORDS = r"(?:생년월일|생년|생일|출생일|출생연월일|birth\s*date|birthday|date\s*of\s*birth|dob)"
+BIRTHDATE_VALUE_PATTERN = (
+    r"(?:\d{4}[./-]\d{1,2}[./-]\d{1,2}"
+    r"|\d{2}[./-]\d{1,2}[./-]\d{1,2}"
+    r"|\d{2,4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일"
+    r"|\d{8}"
+    r"|\d{6})"
+)
+BIRTHDATE_PREFIX_CONTEXT_RE = re.compile(
+    rf"({BIRTHDATE_KEYWORDS}\s*[:：]?\s*)({BIRTHDATE_VALUE_PATTERN})",
+    re.IGNORECASE,
+)
+BIRTHDATE_SUFFIX_CONTEXT_RE = re.compile(
+    rf"({BIRTHDATE_VALUE_PATTERN})\s*(생|출생)",
+    re.IGNORECASE,
+)
 LONG_DIGIT_RE = re.compile(r"\d{5,}")
 
 
@@ -140,6 +159,12 @@ class PrivacyMaskingEngine:
             types.add("주소")
         if self._matches(normalized, ID_HEADERS):
             types.add("식별번호")
+        if self._matches(normalized, GENDER_HEADERS):
+            types.add("성별")
+        if self._matches(normalized, AGE_HEADERS):
+            types.add("나이")
+        if self._matches(normalized, BIRTHDATE_HEADERS):
+            types.add("생년월일")
         return types
 
     def _mask_value(self, value: object, column_types: set[str]) -> tuple[object, list[str]]:
@@ -158,6 +183,9 @@ class PrivacyMaskingEngine:
         text, changed = self._mask_email_patterns(text)
         if changed:
             applied.append("이메일")
+        text, changed = self._mask_birthdate_context_patterns(text)
+        if changed:
+            applied.append("생년월일")
 
         if "주민등록번호" in column_types:
             text, changed = self._mask_rrn_patterns(text, fallback=True)
@@ -192,31 +220,51 @@ class PrivacyMaskingEngine:
             if masked_identifier != text:
                 text = masked_identifier
                 applied.append("식별번호")
+        if "성별" in column_types:
+            masked_gender = mask_placeholder(text, "성별")
+            if masked_gender != text:
+                text = masked_gender
+                applied.append("성별")
+        if "나이" in column_types:
+            masked_age = mask_placeholder(text, "나이")
+            if masked_age != text:
+                text = masked_age
+                applied.append("나이")
+        if "생년월일" in column_types:
+            masked_birthdate = mask_placeholder(text, "생년월일")
+            if masked_birthdate != text:
+                text = masked_birthdate
+                applied.append("생년월일")
 
         deduped = list(dict.fromkeys(applied))
         return (text if text != original else value), deduped
 
     def _mask_rrn_patterns(self, text: str, fallback: bool = False) -> tuple[str, bool]:
-        masked, count = RRN_RE.subn(lambda match: f"{match.group(1)}-*******", text)
+        masked, count = RRN_RE.subn(lambda match: "******-*******", text)
         if count or not fallback:
             return masked, bool(count)
         digits = re.sub(r"\D", "", text)
-        if len(digits) == 13 and digits[6] in "1234":
-            return f"{digits[:6]}-*******", True
+        if len(digits) == 13 and digits[6] in "12345678":
+            return "******-*******", True
         return text, False
 
     def _mask_phone_patterns(self, text: str) -> tuple[str, bool]:
-        masked, count = PHONE_RE.subn(lambda match: f"{match.group(1)}-****-{match.group(3)}", text)
+        masked, count = PHONE_RE.subn("***", text)
         return masked, bool(count)
 
     def _mask_email_patterns(self, text: str, fallback: bool = False) -> tuple[str, bool]:
-        masked, count = EMAIL_RE.subn(lambda match: f"{mask_email_local(match.group(1))}@{match.group(2)}", text)
+        masked, count = EMAIL_RE.subn("***", text)
         if count or not fallback or "@" not in text:
             return masked, bool(count)
         local, _, domain = text.partition("@")
         if local and domain:
-            return f"{mask_email_local(local)}@{domain}", True
+            return "***", True
         return text, False
+
+    def _mask_birthdate_context_patterns(self, text: str) -> tuple[str, bool]:
+        masked, prefix_count = BIRTHDATE_PREFIX_CONTEXT_RE.subn(lambda match: f"{match.group(1)}***", text)
+        masked, suffix_count = BIRTHDATE_SUFFIX_CONTEXT_RE.subn(lambda match: f"***{match.group(2)}", masked)
+        return masked, bool(prefix_count or suffix_count)
 
     def _guide_frame(self, result: PrivacyMaskingResult) -> pd.DataFrame:
         rows = [
@@ -225,7 +273,7 @@ class PrivacyMaskingEngine:
             {"항목": "마스킹 처리 건수", "내용": result.summary.get("masking_record_count", 0)},
             {"항목": "원본 파일", "내용": result.summary.get("file_name", "")},
             {"항목": "주의", "내용": "원본 파일은 수정하지 않았습니다. 결과 파일만 새로 만들었습니다."},
-            {"항목": "추가 확인", "내용": "주소처럼 문맥 판단이 필요한 항목은 마스킹결과 시트에서 사람이 한 번 더 확인하세요."},
+            {"항목": "추가 확인", "내용": "성별, 나이, 생년월일처럼 컬럼명으로 판단하는 항목은 마스킹결과 시트에서 사람이 한 번 더 확인하세요."},
         ]
         return pd.DataFrame(rows)
 
@@ -266,69 +314,47 @@ class PrivacyMaskingEngine:
 
     def _action_text(self, masking_type: str) -> str:
         actions = {
-            "주민등록번호": "앞 6자리만 남기고 뒤 7자리를 가렸습니다.",
-            "이름": "이름 가운데 글자를 가렸습니다.",
-            "연락처": "중간 번호를 가렸습니다.",
-            "이메일": "이메일 아이디 일부를 가렸습니다.",
-            "계좌번호": "계좌번호 가운데 숫자를 가렸습니다.",
-            "주소": "상세 주소를 가렸습니다.",
+            "주민등록번호": "주민등록번호 또는 외국인등록번호 전체를 가렸습니다.",
+            "이름": "이름 값을 전체 가렸습니다.",
+            "연락처": "연락처 값을 전체 가렸습니다.",
+            "이메일": "이메일 주소 전체를 가렸습니다.",
+            "계좌번호": "계좌번호 값을 전체 가렸습니다.",
+            "주소": "주소 값을 전체 가렸습니다.",
             "식별번호": "식별번호 앞부분을 가렸습니다.",
+            "성별": "성별 값을 전체 가렸습니다.",
+            "나이": "나이 또는 연령 값을 전체 가렸습니다.",
+            "생년월일": "생년월일 값을 전체 가렸습니다.",
         }
         return actions.get(masking_type, "개인정보 의심 값을 가렸습니다.")
 
 
 def mask_name(text: str) -> str:
-    parts = re.split(r"(\s+)", text)
-    return "".join(_mask_name_token(part) if not part.isspace() else part for part in parts)
-
-
-def _mask_name_token(token: str) -> str:
-    if not token:
-        return token
-    chars = list(token)
-    if len(chars) == 1:
-        return "*"
-    if len(chars) == 2:
-        return f"{chars[0]}*"
-    return f"{chars[0]}{'*' * (len(chars) - 2)}{chars[-1]}"
+    return mask_placeholder(text, "성명")
 
 
 def mask_phone_text(text: str) -> str:
-    masked, count = PHONE_RE.subn(lambda match: f"{match.group(1)}-****-{match.group(3)}", text)
+    masked, count = PHONE_RE.subn("***", text)
     if count:
         return masked
     digits = re.sub(r"\D", "", text)
     if 7 <= len(digits) <= 11:
-        return f"{digits[:3]}-****-{digits[-4:]}"
+        return "***"
     return text
-
-
-def mask_email_local(local: str) -> str:
-    if len(local) <= 1:
-        return "*"
-    return f"{local[0]}{'*' * max(3, len(local) - 1)}"
 
 
 def mask_long_digits(text: str) -> str:
-    def repl(match: re.Match[str]) -> str:
-        digits = match.group(0)
-        if len(digits) <= 6:
-            return f"{digits[:2]}**{digits[-2:]}"
-        return f"{digits[:3]}{'*' * (len(digits) - 6)}{digits[-3:]}"
-
-    return LONG_DIGIT_RE.sub(repl, text)
+    return "***" if LONG_DIGIT_RE.search(text) else text
 
 
 def mask_address(text: str) -> str:
-    parts = text.split()
-    if len(parts) >= 3:
-        return " ".join(parts[:2] + ["****"])
-    if len(text) > 8:
-        return f"{text[:6]}****"
-    return text
+    return mask_placeholder(text, "주소")
 
 
 def mask_identifier(text: str) -> str:
     if len(text) <= 2:
         return "*" * len(text)
     return f"{'*' * (len(text) - 2)}{text[-2:]}"
+
+
+def mask_placeholder(text: str, label: str) -> str:
+    return "***" if text.strip() else text

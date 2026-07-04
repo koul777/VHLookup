@@ -51,14 +51,46 @@ PRIVACY_RULES = (
     PrivacyRule(
         category="고유식별정보",
         severity="높음",
-        header_keywords=("주민등록", "주민번호", "외국인등록", "여권", "rrn", "passport"),
+        header_keywords=("주민등록", "주민번호", "외국인등록", "외국인번호", "고유식별", "여권", "rrn", "passport"),
         action="고유식별정보는 최소 처리 원칙에 따라 포함 여부를 재검토하세요.",
     ),
+    PrivacyRule(
+        category="성별",
+        severity="주의",
+        header_keywords=("성별", "남녀", "gender", "sex"),
+        action="성별 정보가 필요한 대상에게만 전달되는지 확인하세요.",
+    ),
+    PrivacyRule(
+        category="나이",
+        severity="주의",
+        header_keywords=("나이", "연령", "만나이", "age"),
+        action="나이 또는 연령 정보가 필요한 대상에게만 전달되는지 확인하세요.",
+    ),
+    PrivacyRule(
+        category="생년월일",
+        severity="높음",
+        header_keywords=("생년월일", "생년", "생일", "출생일", "출생연월일", "birth", "birthday", "dateofbirth", "dob"),
+        action="생년월일 정보는 공유 전 마스킹 또는 삭제를 검토하세요.",
+    ),
+)
+
+BIRTHDATE_KEYWORDS = r"(?:생년월일|생년|생일|출생일|출생연월일|birth\s*date|birthday|date\s*of\s*birth|dob)"
+BIRTHDATE_VALUE_PATTERN = (
+    r"(?:\d{4}[./-]\d{1,2}[./-]\d{1,2}"
+    r"|\d{2}[./-]\d{1,2}[./-]\d{1,2}"
+    r"|\d{2,4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일"
+    r"|\d{8}"
+    r"|\d{6})"
+)
+BIRTHDATE_CONTEXT_RE = re.compile(
+    rf"(?:{BIRTHDATE_KEYWORDS}\s*[:：]?\s*{BIRTHDATE_VALUE_PATTERN}|{BIRTHDATE_VALUE_PATTERN}\s*(?:생|출생))",
+    re.IGNORECASE,
 )
 
 PATTERN_RULES = (
     ("이메일 패턴", "주의", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"), "이메일 주소 패턴이 감지되었습니다."),
-    ("주민등록번호 패턴", "높음", re.compile(r"\b\d{6}-?[1-4]\d{6}\b"), "주민등록번호로 보이는 패턴이 감지되었습니다."),
+    ("고유식별번호 패턴", "높음", re.compile(r"\b\d{6}-?[1-8]\d{6}\b"), "주민등록번호 또는 외국인등록번호로 보이는 패턴이 감지되었습니다."),
+    ("생년월일 패턴", "높음", BIRTHDATE_CONTEXT_RE, "생년월일로 보이는 패턴이 감지되었습니다."),
     ("전화번호 패턴", "주의", re.compile(r"\b(?:0\d{1,2}-?\d{3,4}-?\d{4})\b"), "전화번호로 보이는 패턴이 감지되었습니다."),
 )
 

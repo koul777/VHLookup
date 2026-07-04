@@ -343,7 +343,7 @@ class LocalApp:
         self._action_button(
             actions,
             "1. 개인정보 마스킹",
-            "이름, 주민등록번호, 연락처, 이메일, 계좌번호, 주소를 가린 새 엑셀을 만듭니다.",
+            "이름, 고유식별번호, 연락처, 이메일, 계좌번호, 주소, 성별, 나이, 생년월일을 가린 새 엑셀을 만듭니다.",
             self.quick_privacy_mask,
         )
         self._action_button(

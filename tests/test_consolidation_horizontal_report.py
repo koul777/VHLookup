@@ -245,14 +245,32 @@ def test_privacy_scanner_flags_sensitive_columns_without_values():
         {
             "성명": ["홍길동"],
             "연락처": ["010-1234-5678"],
-            "비고": ["주민번호 900101-1234567 확인"],
+            "외국인등록번호": ["880811-5234567"],
+            "성별": ["남"],
+            "나이": [38],
+            "생년월일": ["1988-08-11"],
+            "비고": ["주민번호 900101-1234567 확인 생년월일 1900/01/01 93년8월11일생 생년 930811"],
         }
     )
 
     records = PrivacyScanner().scan_frame(frame)
 
-    assert {record["점검 유형"] for record in records} >= {"개인 식별 이름", "연락처", "주민등록번호 패턴"}
+    assert {record["점검 유형"] for record in records} >= {
+        "개인 식별 이름",
+        "연락처",
+        "고유식별정보",
+        "고유식별번호 패턴",
+        "생년월일 패턴",
+        "성별",
+        "나이",
+        "생년월일",
+    }
     serialized = str(records)
     assert "홍길동" not in serialized
     assert "010-1234-5678" not in serialized
     assert "900101-1234567" not in serialized
+    assert "880811-5234567" not in serialized
+    assert "1988-08-11" not in serialized
+    assert "1900/01/01" not in serialized
+    assert "93년8월11일" not in serialized
+    assert "930811" not in serialized
