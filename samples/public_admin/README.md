@@ -6,7 +6,7 @@ CSV 파일은 Windows Excel에서 더블클릭으로 열어도 한글이 깨지�
 
 ## 폴더 구조
 
-실행 화면의 주요 기능과 추가 업무 항목 순서에 맞춰 샘플 폴더를 나눴습니다.
+실행 화면의 1~6번 주요 기능 순서에 맞춰 샘플 폴더를 나눴습니다.
 
 ```text
 samples/public_admin
@@ -21,9 +21,9 @@ samples/public_admin
 │  └─ large_column_merge_10k
 ├─ 04_before_after_validation
 │  └─ large_before_after_diagonal_10k
-├─ 05_pivot_summary
-├─ 06_submission_reconciliation
-└─ 07_horizontal_table
+├─ 05_horizontal_table
+│  └─ large_monthly_budget_wide_10k.csv
+└─ 06_pivot_summary
 ```
 
 ## 1. 개인정보 마스킹
@@ -99,9 +99,23 @@ samples/public_admin
 
 두 파일은 각각 10,000행 x 50열입니다. `검증ID` 키는 양쪽 모두 같고, 후 파일의 `항목01`~`항목49` 대각선 49개 셀만 다른 글자로 바뀌어 있습니다.
 
-## 5. 피벗 요약표 만들기
+## 5. 가로세로 변환
 
-`05_pivot_summary/budget_execution.csv`를 사용합니다.
+`05_horizontal_table/monthly_budget_wide.csv`를 사용합니다.
+
+확인할 수 있는 흐름:
+- `1월`, `2월`, `3월`, `4월` 컬럼 자동 감지
+- 월별 가로표를 `기관명`, `사업구분`, `담당부서`, `비고`, `열 기준`, `값` 형태로 변환
+- 파일 탑재 미리보기와 실행 중 진행률 창 표시
+
+대용량 성능 확인 샘플:
+- `05_horizontal_table/large_monthly_budget_wide_10k.csv`
+
+대용량 샘플은 10,000행 x 17열이며, 변환 결과는 120,000행입니다. 실제 개인정보가 아닌 합성 기관명과 테스트 금액만 들어 있습니다.
+
+## 6. 피벗 요약표 만들기
+
+`06_pivot_summary/budget_execution.csv`를 사용합니다.
 
 추천 선택:
 - 행 기준: `부서`
@@ -114,19 +128,3 @@ samples/public_admin
 - 상태별 건수 요약
 - `피벗요약` 시트에 요약표 생성
 - 기준 설명과 확인할 점은 `확인사항` 시트에 표시
-
-## 6. 제출 대상 누락 확인
-
-`06_submission_reconciliation/expected_submitters.csv`와 `06_submission_reconciliation/received_submitters.csv`를 사용합니다.
-
-확인할 수 있는 흐름:
-- 제출 대상인데 제출하지 않은 기관
-- 대상 명단에 없는데 제출한 기관
-
-## 7. 월별 가로표 세로 변환
-
-`07_horizontal_table/monthly_budget_wide.csv`를 사용합니다.
-
-확인할 수 있는 흐름:
-- `1월`, `2월`, `3월` 컬럼 자동 감지
-- 월별 가로표를 `기관명`, `항목`, `열 기준`, `값` 형태로 변환

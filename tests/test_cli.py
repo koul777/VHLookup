@@ -11,8 +11,7 @@ from vhlookup_core.inspection_report import InspectionReportWriter
 SAMPLES = Path("samples/public_admin")
 MERGE_SAMPLES = SAMPLES / "03_merge_files"
 HR_SAMPLES = MERGE_SAMPLES / "column_merge_hr_training"
-SUBMISSION_SAMPLES = SAMPLES / "06_submission_reconciliation"
-HORIZONTAL_SAMPLES = SAMPLES / "07_horizontal_table"
+HORIZONTAL_SAMPLES = SAMPLES / "05_horizontal_table"
 
 
 def test_cli_consolidate_generates_review_ready_workbook(tmp_path):
@@ -140,14 +139,25 @@ def test_cli_lookup_auto_matches_without_manual_columns(tmp_path):
 def test_cli_reconcile_and_horizontal_workflows(tmp_path):
     reconcile_out = tmp_path / "reconcile.xlsx"
     horizontal_out = tmp_path / "horizontal.xlsx"
+    expected = tmp_path / "expected_submitters.csv"
+    received = tmp_path / "received_submitters.csv"
+
+    expected.write_text(
+        "기관코드,기관명\nA001,중앙초\nA002,서부중\nA003,동부고\n",
+        encoding="utf-8-sig",
+    )
+    received.write_text(
+        "제출기관코드,제출기관명\nA001,중앙초\nA004,북부고\n",
+        encoding="utf-8-sig",
+    )
 
     main(
         [
             "reconcile",
             "--reference",
-            str(SUBMISSION_SAMPLES / "expected_submitters.csv"),
+            str(expected),
             "--target",
-            str(SUBMISSION_SAMPLES / "received_submitters.csv"),
+            str(received),
             "--key",
             "기관코드",
             "--target-key",
@@ -169,4 +179,4 @@ def test_cli_reconcile_and_horizontal_workflows(tmp_path):
     reconcile = pd.read_excel(reconcile_out, sheet_name="확인사항")
     horizontal = pd.read_excel(horizontal_out, sheet_name="결과")
     assert "대상표에 없는 건수" in set(reconcile["기준/컬럼"])
-    assert set(horizontal.columns) == {"기관명", "항목", "비고", "열 기준", "값"}
+    assert set(horizontal.columns) == {"기관명", "사업구분", "담당부서", "비고", "열 기준", "값"}

@@ -96,59 +96,45 @@ def style_workbook(workbook) -> None:
 DEMO_TOUR_ROWS = [
     {
         "순서": "01",
-        "결과 파일": "01_제출자료_수합결과.xlsx",
-        "업무 상황": "학교/부서/기관에서 받은 제출자료 수합",
-        "열어볼 시트": "결과, 자동추천근거, 개인정보점검",
-        "확인 포인트": "컬럼명을 자동으로 맞춘 통합본, 담당자/연락처 점검",
+        "결과 파일": "01_개인정보_마스킹결과.xlsx",
+        "업무 상황": "개인정보 마스킹",
+        "열어볼 시트": "마스킹결과, 마스킹내역",
+        "확인 포인트": "이름, 고유식별번호, 연락처, 이메일, 계좌번호, 주소, 생년월일 마스킹",
     },
     {
         "순서": "02",
-        "결과 파일": "02_오류검증_제출자료.xlsx",
-        "업무 상황": "제출자료 오류 검토",
-        "열어볼 시트": "먼저확인, 확인필요, 개인정보점검",
-        "확인 포인트": "필수값 누락, 숫자 오류, 날짜 오류, 중복 제출 의심",
+        "결과 파일": "02_분류별_시트나누기.xlsx",
+        "업무 상황": "분류별 시트 나누기",
+        "열어볼 시트": "분류별 시트, 전체, 확인사항",
+        "확인 포인트": "부서별 시트 자동 생성과 전체 원본 시트 보존",
     },
     {
         "순서": "03",
-        "결과 파일": "03_교육이수_명단대조.xlsx",
-        "업무 상황": "교육이수 명단에 직원 기본정보 붙이기",
+        "결과 파일": "03_제출자료_수합결과.xlsx",
+        "업무 상황": "엑셀/CSV 파일 여러 개 합치기",
         "열어볼 시트": "결과, 자동추천근거, 확인필요, 개인정보점검",
-        "확인 포인트": "사번과 직원번호 자동 연결, 부서/직급/소속 붙이기",
+        "확인 포인트": "제목 행과 안내문을 건너뛰고 컬럼명을 자동으로 맞춘 통합본",
     },
     {
         "순서": "04",
-        "결과 파일": "04_교육누락자_대조결과.xlsx",
-        "업무 상황": "교육 대상자 중 빠진 사람 찾기",
-        "열어볼 시트": "결과, 확인필요, 개인정보점검",
-        "확인 포인트": "기준명단에만 있음, 교육이수 명단에만 있음, 양쪽 모두 있음",
+        "결과 파일": "04_전후파일_검증결과.xlsx",
+        "업무 상황": "전/후 파일 검증",
+        "열어볼 시트": "후파일_메모, 확인사항",
+        "확인 포인트": "값 변경, 추가 행, 누락 행을 색과 메모로 확인",
     },
     {
         "순서": "05",
-        "결과 파일": "05_수당예산_대조결과.xlsx",
-        "업무 상황": "수당/예산 지급대상자 기준표 대조",
-        "열어볼 시트": "결과, 자동추천근거, 확인필요, 개인정보점검",
-        "확인 포인트": "사번+지급월 복합 키로 단가/지급기준/예산과목 붙이기",
+        "결과 파일": "05_가로세로변환_결과.xlsx",
+        "업무 상황": "가로세로 변환",
+        "열어볼 시트": "결과",
+        "확인 포인트": "월별 컬럼을 열 기준/값 형태의 세로형 표로 변환",
     },
     {
         "순서": "06",
-        "결과 파일": "06_제출대상_누락확인.xlsx",
-        "업무 상황": "제출 대상 기관 누락 확인",
-        "열어볼 시트": "결과, 확인필요",
-        "확인 포인트": "미제출 기관과 대상이 아닌 제출 기관 분리",
-    },
-    {
-        "순서": "07",
-        "결과 파일": "07_부서별현황_수합결과.xlsx",
-        "업무 상황": "부서별 현황자료 수합",
-        "열어볼 시트": "결과, 자동추천근거, 개인정보점검",
-        "확인 포인트": "담당 부서/소속, 현원/인원수 같은 다른 표현 통합",
-    },
-    {
-        "순서": "08",
-        "결과 파일": "08_월별가로표_세로변환.xlsx",
-        "업무 상황": "월별 가로표 세로 변환",
-        "열어볼 시트": "결과",
-        "확인 포인트": "1월, 2월, 3월 컬럼을 세로형 자료로 변환",
+        "결과 파일": "06_피벗요약표_결과.xlsx",
+        "업무 상황": "피벗 요약표 만들기",
+        "열어볼 시트": "피벗요약, 확인사항",
+        "확인 포인트": "부서별/월별 예산 집행 합계 요약",
     },
 ]
 
@@ -173,10 +159,10 @@ def write_demo_tour(output_dir: Path) -> None:
         pd.DataFrame(
             [
                 {"단계": 1, "할 일": "00_샘플_둘러보기.xlsx에서 샘플순서 시트를 봅니다."},
-                {"단계": 2, "할 일": "02_오류검증_제출자료.xlsx의 확인필요 시트를 봅니다."},
-                {"단계": 3, "할 일": "03_교육이수_명단대조.xlsx의 자동추천근거 시트를 봅니다."},
-                {"단계": 4, "할 일": "05_수당예산_대조결과.xlsx에서 복합 키 대조 결과를 봅니다."},
-                {"단계": 5, "할 일": "01_제출자료_수합결과.xlsx의 개인정보점검 시트를 봅니다."},
+                {"단계": 2, "할 일": "03_제출자료_수합결과.xlsx의 자동추천근거 시트를 봅니다."},
+                {"단계": 3, "할 일": "04_전후파일_검증결과.xlsx의 후파일_메모 시트를 봅니다."},
+                {"단계": 4, "할 일": "05_가로세로변환_결과.xlsx의 결과 시트를 봅니다."},
+                {"단계": 5, "할 일": "06_피벗요약표_결과.xlsx의 피벗요약 시트를 봅니다."},
             ]
         ).to_excel(writer, sheet_name="추천동선", index=False)
         style_workbook(writer.book)
@@ -189,104 +175,56 @@ def generate_demo_reports(output_dir: Path, samples_dir: Path) -> list[Path]:
 
     writer = ReportWriter()
     write_demo_tour(output_dir)
+    tools = AdminWorkbookTools()
     merge_samples = samples_dir / "03_merge_files"
-    hr_samples = merge_samples / "column_merge_hr_training"
+
+    PrivacyMaskingEngine().write_xlsx(
+        samples_dir / "01_privacy_masking" / "citizen_service_requests.csv",
+        output_dir / "01_개인정보_마스킹결과.xlsx",
+    )
+
+    tools.write_split_workbook(
+        samples_dir / "02_split_sheets" / "budget_execution.csv",
+        output_dir / "02_분류별_시트나누기.xlsx",
+        split_column="부서",
+    )
 
     consolidated = ConsolidationEngine().consolidate_folder(
         merge_samples / "row_merge_school_submissions",
         template="school_submission_consolidation",
     )
-    writer.write_xlsx(
-        consolidated,
-        output_dir / "01_제출자료_수합결과.xlsx",
-        mark_result_cells=False,
-        include_privacy_scan=False,
-    )
+    writer.write_xlsx(consolidated, output_dir / "03_제출자료_수합결과.xlsx", include_privacy_scan=False)
 
-    invalid_consolidated = ConsolidationEngine().consolidate_folder(
-        merge_samples / "row_merge_submission_errors",
-        template="school_submission_consolidation",
+    diff = WorkbookDiffEngine().compare_files(
+        samples_dir / "04_before_after_validation" / "payment_before.csv",
+        samples_dir / "04_before_after_validation" / "payment_after.csv",
     )
-    writer.write_xlsx(
-        invalid_consolidated,
-        output_dir / "02_오류검증_제출자료.xlsx",
-        mark_result_cells=False,
-        include_privacy_scan=False,
-    )
+    WorkbookDiffReportWriter().write_xlsx(diff, output_dir / "04_전후파일_검증결과.xlsx")
 
-    employee_master = load_table(hr_samples / "hr_employee_master.csv")
-    training = load_table(hr_samples / "hr_training_completion.csv")
-    lookup = ConsolidationEngine().merge_files_by_columns(
-        [hr_samples / "hr_employee_master.csv", hr_samples / "hr_training_completion.csv"]
-    )
-    writer.write_xlsx(lookup, output_dir / "03_교육이수_명단대조.xlsx", include_privacy_scan=False)
-
-    reconciliation_plan = AutoLookupPlanner().infer_reconciliation_key_spec(employee_master, training)
-    reconciliation = ReconciliationEngine().compare_lists(
-        employee_master,
-        training,
-        reconciliation_plan.key_spec,
-    )
-    attach_auto_summary(reconciliation, reconciliation_plan, "빠진 사람/누락 제출자 찾기")
-    writer.write_xlsx(reconciliation, output_dir / "04_교육누락자_대조결과.xlsx")
-
-    allowance_template = get_template("allowance_budget_lookup")
-    allowance_samples = merge_samples / "column_merge_allowance_budget"
-    rate_reference = load_table(allowance_samples / "rate_reference.csv")
-    payment_requests = load_table(allowance_samples / "payment_requests.csv")
-    allowance_plan = AutoLookupPlanner().infer_lookup_plan(
-        rate_reference,
-        payment_requests,
-        preferred_reference_key_columns=allowance_template.key_columns,
-        preferred_target_key_columns=("직원번호", "지급월"),
-        preferred_value_columns=allowance_template.value_columns,
-    )
-    allowance = MergeEngine().merge_lookup(
-        rate_reference,
-        payment_requests,
-        allowance_plan.key_spec,
-        value_columns=list(allowance_plan.value_columns),
-    )
-    attach_auto_summary(allowance, allowance_plan, allowance_template.name)
-    writer.write_xlsx(allowance, output_dir / "05_수당예산_대조결과.xlsx")
-
-    submitter_samples = samples_dir / "06_submission_reconciliation"
-    expected = load_table(submitter_samples / "expected_submitters.csv")
-    received = load_table(submitter_samples / "received_submitters.csv")
-    submitter_plan = AutoLookupPlanner().infer_reconciliation_key_spec(
-        expected,
-        received,
-        preferred_reference_key_columns=("기관코드",),
-        preferred_target_key_columns=("제출기관코드",),
-    )
-    submitter_reconciliation = ReconciliationEngine().compare_lists(
-        expected,
-        received,
-        submitter_plan.key_spec,
-        reference_label="제출 대상 명단",
-        target_label="실제 제출 명단",
-    )
-    attach_auto_summary(submitter_reconciliation, submitter_plan, "제출 대상자 누락 확인")
-    writer.write_xlsx(submitter_reconciliation, output_dir / "06_제출대상_누락확인.xlsx")
-
-    department_status = ConsolidationEngine().consolidate_folder(
-        merge_samples / "row_merge_messy_headers",
-        template="department_status_consolidation",
-    )
-    writer.write_xlsx(
-        department_status,
-        output_dir / "07_부서별현황_수합결과.xlsx",
-        mark_result_cells=False,
-        include_privacy_scan=False,
-    )
-
-    monthly = load_table(samples_dir / "07_horizontal_table" / "monthly_budget_wide.csv")
-    converted = HorizontalTableEngine().wide_to_long(monthly, id_columns=["기관명", "항목"])
+    horizontal_source = load_table(samples_dir / "05_horizontal_table" / "monthly_budget_wide.csv")
+    horizontal_detection = HorizontalTableEngine().detect(horizontal_source)
+    horizontal_id_columns = [column for column in horizontal_source.columns if column not in horizontal_detection.value_columns]
     horizontal = JobResult(
-        result_frame=converted,
-        summary={"workflow": "월별 가로표 세로 변환", "row_count": len(converted)},
+        result_frame=HorizontalTableEngine().wide_to_long(
+            horizontal_source,
+            id_columns=horizontal_id_columns,
+            value_columns=horizontal_detection.value_columns,
+        ),
+        summary={
+            "workflow": "가로세로 변환",
+            "auto_value_columns": ", ".join(horizontal_detection.value_columns),
+        },
     )
-    writer.write_xlsx(horizontal, output_dir / "08_월별가로표_세로변환.xlsx")
+    writer.write_xlsx(horizontal, output_dir / "05_가로세로변환_결과.xlsx")
+
+    tools.write_pivot_workbook(
+        samples_dir / "06_pivot_summary" / "budget_execution.csv",
+        output_dir / "06_피벗요약표_결과.xlsx",
+        row_column="부서",
+        column_column="월",
+        value_column="금액",
+        aggregation="합계",
+    )
     return sorted(output_dir.glob("*.xlsx"))
 
 
@@ -334,7 +272,7 @@ class LocalApp:
         ttk.Label(header, text=APP_DISPLAY_NAME, style="HeaderTitle.TLabel").pack(anchor="w")
         ttk.Label(
             header,
-            text="엑셀 수합, 대조, 검증, 피벗 요약을 로컬 PC에서 처리합니다. 원본 파일은 수정하지 않습니다.",
+            text="엑셀 수합, 대조, 검증, 가로세로 변환, 피벗 요약을 로컬 PC에서 처리합니다. 원본 파일은 수정하지 않습니다.",
             style="HeaderSub.TLabel",
         ).pack(anchor="w", pady=(4, 0))
 
@@ -368,7 +306,13 @@ class LocalApp:
         )
         self._action_button(
             actions,
-            "5. 피벗 요약표 만들기",
+            "5. 가로세로 변환",
+            "월별/분기별로 옆으로 펼쳐진 열을 수합과 대조에 다시 쓸 수 있는 세로형 표로 바꿉니다.",
+            self.quick_horizontal,
+        )
+        self._action_button(
+            actions,
+            "6. 피벗 요약표 만들기",
             "부서/기관/월별 건수, 합계, 평균 요약표를 드롭박스로 선택해 만듭니다.",
             self.quick_pivot_summary,
         )
@@ -1373,6 +1317,182 @@ class LocalApp:
         refresh_preview()
         self.root.wait_window(dialog)
 
+    def quick_horizontal(self) -> None:
+        dialog = Toplevel(self.root)
+        dialog.title("가로세로 변환")
+        dialog.geometry("980x700")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        file_path = StringVar()
+        id_columns_text = StringVar()
+        table_frame: pd.DataFrame | None = None
+        detected_value_columns: tuple[str, ...] = ()
+
+        frame = ttk.Frame(dialog, padding=14)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(
+            frame,
+            text="월별/분기별로 옆으로 펼쳐진 열을 세로형 표로 바꿉니다.",
+            font=("", 11, "bold"),
+        ).pack(anchor="w", pady=(0, 10))
+
+        file_row = ttk.Frame(frame)
+        file_row.pack(fill="x", pady=5)
+        ttk.Label(file_row, text="원본 파일", width=12).pack(side="left")
+        ttk.Entry(file_row, textvariable=file_path).pack(side="left", fill="x", expand=True)
+
+        option_box = ttk.LabelFrame(frame, text="변환 기준", padding=10)
+        option_box.pack(fill="x", pady=(10, 0))
+        ttk.Label(option_box, text="행 기준 컬럼").pack(anchor="w")
+        ttk.Entry(option_box, textvariable=id_columns_text).pack(fill="x", pady=(4, 0))
+        ttk.Label(
+            option_box,
+            text="비워두면 1월, 2월, 1분기 같은 월/분기 컬럼을 자동으로 값 열로 잡고 나머지를 행 기준으로 둡니다.",
+            wraplength=820,
+        ).pack(anchor="w", pady=(6, 0))
+
+        status_text = StringVar(value="파일 선택을 누르면 미리보기와 자동 감지 결과가 표시됩니다.")
+        ttk.Label(frame, textvariable=status_text, foreground="#374151").pack(anchor="w", pady=(10, 0))
+
+        preview_box = ttk.LabelFrame(frame, text="미리보기", padding=8)
+        preview_box.pack(fill="both", expand=True, pady=(10, 0))
+        preview_box.rowconfigure(0, weight=1)
+        preview_box.columnconfigure(0, weight=1)
+        preview_text = Text(preview_box, height=14, wrap="none")
+        preview_text.grid(row=0, column=0, sticky="nsew")
+        preview_scroll_y = ttk.Scrollbar(preview_box, orient="vertical", command=preview_text.yview)
+        preview_scroll_y.grid(row=0, column=1, sticky="ns")
+        preview_scroll_x = ttk.Scrollbar(preview_box, orient="horizontal", command=preview_text.xview)
+        preview_scroll_x.grid(row=1, column=0, sticky="ew")
+        preview_text.configure(
+            yscrollcommand=preview_scroll_y.set,
+            xscrollcommand=preview_scroll_x.set,
+            state="disabled",
+        )
+
+        def current_id_columns() -> list[str]:
+            manual_columns = split_columns(id_columns_text.get())
+            if manual_columns:
+                return manual_columns
+            if table_frame is None:
+                return []
+            return [column for column in table_frame.columns if column not in detected_value_columns]
+
+        def build_preview_frame() -> pd.DataFrame:
+            if table_frame is None:
+                return pd.DataFrame([{"안내": "파일 선택을 눌러 가로세로 변환할 엑셀/CSV 파일을 선택하세요."}])
+            id_columns = current_id_columns()
+            converted = HorizontalTableEngine().wide_to_long(
+                table_frame,
+                id_columns=id_columns,
+                value_columns=detected_value_columns,
+            )
+            return converted.head(10)
+
+        def refresh_preview() -> None:
+            try:
+                self._write_preview_text(preview_text, build_preview_frame(), limit=10)
+            except Exception as exc:
+                self._write_preview_text(preview_text, pd.DataFrame([{"미리보기 오류": str(exc)}]), limit=10)
+
+        def choose_file() -> None:
+            nonlocal table_frame, detected_value_columns
+            selected = filedialog.askopenfilename(
+                parent=dialog,
+                title="가로세로 변환할 엑셀/CSV 파일을 선택하세요",
+                initialdir=self.base_dir,
+                filetypes=[("Excel/CSV", "*.xlsx *.xlsm *.csv"), ("All files", "*.*")],
+            )
+            if not selected:
+                return
+
+            def job(progress):
+                progress(10, "원본 파일 미리보기 읽는 중")
+                preview_table = load_table(Path(selected), max_rows=PREVIEW_LOAD_ROW_LIMIT)
+                progress(55, "월/분기 컬럼 자동 감지 중")
+                detection = HorizontalTableEngine().detect(preview_table)
+                if not detection.value_columns:
+                    raise ValueError("월/분기처럼 가로로 펼쳐진 값 열을 찾지 못했습니다.")
+                progress(80, "변환 미리보기 준비 중")
+                auto_id_columns = [column for column in preview_table.columns if column not in detection.value_columns]
+                converted_preview = HorizontalTableEngine().wide_to_long(
+                    preview_table,
+                    id_columns=auto_id_columns,
+                    value_columns=detection.value_columns,
+                )
+                progress(100, "파일 탑재 미리보기 완료")
+                return preview_table, detection.value_columns, converted_preview.head(10)
+
+            def apply_loaded(payload) -> None:
+                nonlocal table_frame, detected_value_columns
+                table_frame, detected_value_columns, preview = payload
+                auto_id_columns = [str(column) for column in table_frame.columns if column not in detected_value_columns]
+                file_path.set(selected)
+                id_columns_text.set(", ".join(auto_id_columns))
+                status_text.set(
+                    f"자동 감지 값 열: {', '.join(detected_value_columns)} / 미리보기 {len(table_frame)}행 기준"
+                )
+                self._write_preview_text(preview_text, preview, limit=10)
+
+            self._run_with_progress("가로세로 변환 파일 탑재", job, on_done=apply_loaded, show_success=False)
+
+        def cancel() -> None:
+            dialog.destroy()
+
+        def execute() -> None:
+            if not file_path.get():
+                messagebox.showwarning(APP_TITLE, "먼저 변환할 파일을 선택하세요.")
+                return
+            selected_file = Path(file_path.get())
+            manual_id_columns = split_columns(id_columns_text.get())
+            output = self._ask_save_path_or_none("가로세로 변환 결과를 저장할 위치를 선택하세요", "가로세로변환_결과")
+            if not output:
+                return
+            dialog.destroy()
+
+            def job(progress):
+                progress(10, "원본 파일 전체 읽는 중")
+                full_table = load_table(selected_file)
+                progress(45, "월/분기 컬럼 자동 감지 중")
+                detection = HorizontalTableEngine().detect(full_table)
+                if not detection.value_columns:
+                    raise ValueError("월/분기처럼 가로로 펼쳐진 값 열을 찾지 못했습니다.")
+                id_columns = manual_id_columns or [
+                    column for column in full_table.columns if column not in detection.value_columns
+                ]
+                progress(65, "세로형 표로 변환 중")
+                converted = HorizontalTableEngine().wide_to_long(
+                    full_table,
+                    id_columns=id_columns,
+                    value_columns=detection.value_columns,
+                )
+                result = JobResult(
+                    result_frame=converted,
+                    summary={
+                        "workflow": "가로세로 변환",
+                        "row_count": len(converted),
+                        "auto_value_columns": ", ".join(detection.value_columns),
+                    },
+                )
+                progress(88, "결과 엑셀 저장 중")
+                ReportWriter().write_xlsx(result, output)
+                progress(100, "완료")
+                return [output]
+
+            self._run_with_progress("가로세로 변환", job, open_path=output.parent)
+
+        ttk.Button(file_row, text="파일 선택", command=choose_file).pack(side="left", padx=(8, 0))
+
+        button_row = ttk.Frame(frame)
+        button_row.pack(fill="x", pady=(18, 0))
+        ttk.Button(button_row, text="미리보기 새로고침", command=refresh_preview).pack(side="left")
+        ttk.Button(button_row, text="취소", command=cancel).pack(side="right")
+        ttk.Button(button_row, text="실행", command=execute).pack(side="right", padx=(0, 8))
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
+        refresh_preview()
+        self.root.wait_window(dialog)
+
     def quick_pivot_summary(self) -> None:
         no_column_label = "(선택 안 함)"
         row_count_label = "(행 개수)"
@@ -1595,62 +1715,6 @@ class LocalApp:
 
         self._run_with_progress("기준표 값 붙이기", job, open_path=output.parent)
 
-    def quick_reconcile(self) -> None:
-        reference = self._ask_file_or_none("기준 명단 파일을 선택하세요")
-        if not reference:
-            return
-        target = self._ask_file_or_none("비교할 제출/이수 명단 파일을 선택하세요")
-        if not target:
-            return
-        output = self._ask_save_path_or_none("누락 확인 결과를 저장할 위치를 선택하세요", "누락확인_결과")
-        if not output:
-            return
-
-        def job(progress):
-            progress(10, "기준 명단 읽는 중")
-            reference_frame = load_table(reference)
-            progress(25, "대조 명단 읽는 중")
-            target_frame = load_table(target)
-            progress(45, "자동 키 찾는 중")
-            plan = AutoLookupPlanner().infer_reconciliation_key_spec(reference_frame, target_frame)
-            progress(65, "누락 항목 비교 중")
-            result = ReconciliationEngine().compare_lists(reference_frame, target_frame, plan.key_spec)
-            attach_auto_summary(result, plan, "빠진 사람/누락자료 찾기")
-            progress(88, "결과 엑셀 저장 중")
-            ReportWriter().write_xlsx(result, output)
-            progress(100, "완료")
-            return [output]
-
-        self._run_with_progress("빠진 사람/기관 찾기", job, open_path=output.parent)
-
-    def quick_horizontal(self) -> None:
-        file_path = self._ask_file_or_none("월별 가로표 파일을 선택하세요")
-        if not file_path:
-            return
-        output = self._ask_save_path_or_none("가로표 변환 결과를 저장할 위치를 선택하세요", "월별가로표_세로변환")
-        if not output:
-            return
-
-        def job(progress):
-            progress(10, "원본 가로표 읽는 중")
-            table = load_table(file_path)
-            engine = HorizontalTableEngine()
-            progress(35, "월/분기 열 찾는 중")
-            detection = engine.detect(table)
-            id_columns = [column for column in table.columns if column not in detection.value_columns]
-            progress(55, "세로형 표로 변환 중")
-            converted = engine.wide_to_long(table, id_columns=id_columns)
-            result = JobResult(
-                result_frame=converted,
-                summary={"workflow": "월별 가로표 세로 변환", "row_count": len(converted)},
-            )
-            progress(88, "결과 엑셀 저장 중")
-            ReportWriter().write_xlsx(result, output)
-            progress(100, "완료")
-            return [output]
-
-        self._run_with_progress("월별 가로표 세로 변환", job, open_path=output.parent)
-
     def _build_consolidate_tab(self, notebook: ttk.Notebook) -> None:
         frame = ttk.Frame(notebook, padding=12)
         notebook.add(frame, text="제출자료 수합")
@@ -1679,34 +1743,6 @@ class LocalApp:
         self._path_row(frame, "결과 파일", self.lookup_output, self.choose_save_file)
         ttk.Label(frame, text="키/가져올 컬럼을 비워도 컬럼명과 데이터 겹침으로 자동 추천합니다.").pack(anchor="w")
         ttk.Button(frame, text="값 붙이기 실행", command=self.run_lookup).pack(anchor="w", pady=10)
-
-    def _build_reconcile_tab(self, notebook: ttk.Notebook) -> None:
-        frame = ttk.Frame(notebook, padding=12)
-        notebook.add(frame, text="누락 확인")
-        self.reconcile_reference = StringVar()
-        self.reconcile_target = StringVar()
-        self.reconcile_key = StringVar()
-        self.reconcile_target_key = StringVar()
-        self.reconcile_output = StringVar(value=str(self.output_dir / "누락확인_결과.xlsx"))
-        self._path_row(frame, "기준 명단", self.reconcile_reference, self.choose_file)
-        self._path_row(frame, "대조 명단", self.reconcile_target, self.choose_file)
-        self._entry_row(frame, "기준 키 컬럼", self.reconcile_key)
-        self._entry_row(frame, "대상 키 컬럼", self.reconcile_target_key)
-        self._path_row(frame, "결과 파일", self.reconcile_output, self.choose_save_file)
-        ttk.Label(frame, text="키 컬럼을 비우면 자동 추천합니다.").pack(anchor="w")
-        ttk.Button(frame, text="누락 확인 실행", command=self.run_reconcile).pack(anchor="w", pady=10)
-
-    def _build_horizontal_tab(self, notebook: ttk.Notebook) -> None:
-        frame = ttk.Frame(notebook, padding=12)
-        notebook.add(frame, text="가로표 변환")
-        self.horizontal_file = StringVar()
-        self.horizontal_id_columns = StringVar()
-        self.horizontal_output = StringVar(value=str(self.output_dir / "월별가로표_세로변환.xlsx"))
-        self._path_row(frame, "가로표 파일", self.horizontal_file, self.choose_file)
-        self._entry_row(frame, "행 기준 컬럼", self.horizontal_id_columns)
-        self._path_row(frame, "결과 파일", self.horizontal_output, self.choose_save_file)
-        ttk.Label(frame, text="행 기준 컬럼을 비우면 월/분기 컬럼을 제외한 나머지를 기준으로 사용합니다.").pack(anchor="w")
-        ttk.Button(frame, text="세로 변환 실행", command=self.run_horizontal).pack(anchor="w", pady=10)
 
     def _entry_row(self, parent, label: str, variable: StringVar) -> None:
         row = ttk.Frame(parent)
@@ -1793,62 +1829,6 @@ class LocalApp:
             return [output]
 
         self._run_with_progress("값 붙이기", job, open_path=output.parent)
-
-    def run_reconcile(self) -> None:
-        reference_path = Path(self.reconcile_reference.get())
-        target_path = Path(self.reconcile_target.get())
-        preferred_key = tuple(split_columns(self.reconcile_key.get()))
-        preferred_target_key = tuple(split_columns(self.reconcile_target_key.get()))
-        output = Path(self.reconcile_output.get())
-
-        def job(progress):
-            progress(10, "기준 명단 읽는 중")
-            reference = load_table(reference_path)
-            progress(25, "대조 명단 읽는 중")
-            target = load_table(target_path)
-            progress(45, "자동 키 찾는 중")
-            plan = AutoLookupPlanner().infer_reconciliation_key_spec(
-                reference,
-                target,
-                preferred_reference_key_columns=preferred_key,
-                preferred_target_key_columns=preferred_target_key,
-            )
-            progress(65, "누락 항목 비교 중")
-            result = ReconciliationEngine().compare_lists(reference, target, plan.key_spec)
-            attach_auto_summary(result, plan, "빠진 사람/누락자료 찾기")
-            progress(88, "결과 엑셀 저장 중")
-            ReportWriter().write_xlsx(result, output)
-            progress(100, "완료")
-            return [output]
-
-        self._run_with_progress("누락 확인", job, open_path=output.parent)
-
-    def run_horizontal(self) -> None:
-        file_path = Path(self.horizontal_file.get())
-        manual_id_columns = split_columns(self.horizontal_id_columns.get())
-        output = Path(self.horizontal_output.get())
-
-        def job(progress):
-            progress(10, "원본 가로표 읽는 중")
-            table = load_table(file_path)
-            engine = HorizontalTableEngine()
-            progress(35, "월/분기 열 찾는 중")
-            detection = engine.detect(table)
-            id_columns = manual_id_columns or [
-                column for column in table.columns if column not in detection.value_columns
-            ]
-            progress(55, "세로형 표로 변환 중")
-            converted = engine.wide_to_long(table, id_columns=id_columns)
-            result = JobResult(
-                result_frame=converted,
-                summary={"workflow": "월별 가로표 세로 변환", "row_count": len(converted)},
-            )
-            progress(88, "결과 엑셀 저장 중")
-            ReportWriter().write_xlsx(result, output)
-            progress(100, "완료")
-            return [output]
-
-        self._run_with_progress("가로표 변환", job, open_path=output.parent)
 
     def _run(self, label: str, job, open_path: Path | None = None) -> None:
         try:

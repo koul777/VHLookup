@@ -27,10 +27,7 @@ if errorlevel 1 goto fail
 python -m vhlookup_cli.main lookup --reference samples\public_admin\03_merge_files\column_merge_hr_training\hr_employee_master.csv --target samples\public_admin\03_merge_files\column_merge_hr_training\hr_training_completion.csv --out "%OUT%\02_lookup_cli.xlsx"
 if errorlevel 1 goto fail
 
-python -m vhlookup_cli.main reconcile --reference samples\public_admin\06_submission_reconciliation\expected_submitters.csv --target samples\public_admin\06_submission_reconciliation\received_submitters.csv --reference-label expected --target-label received --out "%OUT%\03_reconcile_cli.xlsx"
-if errorlevel 1 goto fail
-
-python -m vhlookup_cli.main horizontal --file samples\public_admin\07_horizontal_table\monthly_budget_wide.csv --out "%OUT%\04_horizontal_cli.xlsx"
+python -m vhlookup_cli.main horizontal --file samples\public_admin\05_horizontal_table\monthly_budget_wide.csv --out "%OUT%\05_horizontal_cli.xlsx"
 if errorlevel 1 goto fail
 
 echo.

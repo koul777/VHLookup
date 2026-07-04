@@ -4,6 +4,7 @@ import pandas as pd
 
 from vhlookup_core import AutoLookupPlanner, ExcelLoader, HeaderDetector, SheetDetector
 from vhlookup_core.consolidation import ConsolidationEngine
+from vhlookup_core.horizontal import HorizontalTableEngine
 from vhlookup_core.merge import MergeEngine
 from vhlookup_core.models import KeySpec
 from vhlookup_core.reconciliation import ReconciliationEngine
@@ -14,7 +15,7 @@ SAMPLES = Path("samples/public_admin")
 MERGE_SAMPLES = SAMPLES / "03_merge_files"
 HR_SAMPLES = MERGE_SAMPLES / "column_merge_hr_training"
 ALLOWANCE_SAMPLES = MERGE_SAMPLES / "column_merge_allowance_budget"
-SUBMISSION_SAMPLES = SAMPLES / "06_submission_reconciliation"
+HORIZONTAL_SAMPLES = SAMPLES / "05_horizontal_table"
 
 
 def _load_table(path: Path):
@@ -208,26 +209,16 @@ def test_merge_mode_recommendation_distinguishes_row_and_column_samples():
     ) == "columns"
 
 
-def test_submission_reconciliation_sample_finds_missing_and_unknown_submitters():
-    expected = _load_table(SUBMISSION_SAMPLES / "expected_submitters.csv")
-    received = _load_table(SUBMISSION_SAMPLES / "received_submitters.csv")
+def test_horizontal_table_sample_converts_month_columns():
+    table = _load_table(HORIZONTAL_SAMPLES / "monthly_budget_wide.csv")
+    engine = HorizontalTableEngine()
+    detection = engine.detect(table)
+    id_columns = [column for column in table.columns if column not in detection.value_columns]
+    converted = engine.wide_to_long(table, id_columns=id_columns, value_columns=detection.value_columns)
 
-    plan = AutoLookupPlanner().infer_reconciliation_key_spec(
-        expected,
-        received,
-        preferred_reference_key_columns=("기관코드",),
-        preferred_target_key_columns=("제출기관코드",),
-    )
-    result = ReconciliationEngine().compare_lists(
-        expected,
-        received,
-        plan.key_spec,
-        reference_label="제출 대상 명단",
-        target_label="실제 제출 명단",
-    )
-
-    assert result.summary["missing_in_target_rows"] == 2
-    assert result.summary["missing_in_reference_rows"] == 1
+    assert detection.value_columns == ("1월", "2월", "3월", "4월")
+    assert set(converted.columns) == {"기관명", "사업구분", "담당부서", "비고", "열 기준", "값"}
+    assert len(converted) == 16
 
 
 def test_messy_header_department_status_sample_consolidates():

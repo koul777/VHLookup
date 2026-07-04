@@ -25,7 +25,7 @@ Get-FileHash .\VHLookupLocal_pivot_v1.2.exe -Algorithm SHA256
 현재 Release 기준 SHA256은 아래와 같습니다.
 
 ```text
-377AD7A8E86487453722341A28F5D1E5BB4AACC4CC2EB338C2F3AB88F134B7AB
+E6D5E60AEC563EFD70D6EEA6B1CCA4AD043DDD13BACA2430C84D97C7650D417D
 ```
 
 공식 Release에서 받은 파일이고 SHA256이 일치하면 Edge 다운로드 목록에서 `유지` 또는 `그래도 유지`를 선택할 수 있습니다. 실행 시 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다.
@@ -53,6 +53,7 @@ Edge에서 다운로드가 막히는 경우 아래 화면처럼 진행합니다.
 - 파일 합치기 결과에는 개인정보 의심 컬럼을 따로 점검하거나 색칠하지 않습니다.
 - 전/후 파일 검증에서 컬럼명이 바뀐 경우, 추가 행, 빠진 행, 값 변경을 함께 표시합니다.
 - 전/후 파일 검증 결과에서 새로 생긴 행은 파란색, 사라진 행은 첫 시트 아래에 추가해 빨간색으로 표시합니다.
+- 가로세로 변환은 월/분기처럼 옆으로 펼쳐진 열을 세로형 표로 바꾸고, 대용량 파일 탑재와 실행 중 진행률 창을 표시합니다.
 - 피벗 요약표 숫자는 천 단위 콤마와 최대 소수 2자리로 보기 좋게 표시합니다.
 - 결과 엑셀은 첫 시트를 실제 결과로 두고, 보조 설명은 `확인사항` 시트 한 장으로 단순화했습니다.
 - 합치기 방향은 기본 `자동 선택`으로 두고, 결과 저장 위치는 사용자가 저장 창에서 직접 고릅니다.
@@ -152,7 +153,18 @@ dist\VHLookupLocal_pivot_v1.2.exe
 - 후 파일에서 사라진 행은 `후파일_메모` 시트 맨 아래에 전 파일 값으로 추가하고 빨간색 전체 행으로 표시
 - 추가 행, 빠진 행, 컬럼 변경은 `확인사항` 시트에서 확인
 
-### 5. 피벗 요약표 만들기
+### 5. 가로세로 변환
+
+월별, 분기별로 옆으로 펼쳐진 가로표를 세로형 자료로 바꿉니다.
+
+- `1월`, `2월`, `1분기`, `2분기` 같은 값 열 자동 감지
+- 값 열을 제외한 나머지 컬럼을 행 기준 컬럼으로 자동 추천
+- 행 기준 컬럼은 쉼표로 직접 수정 가능
+- 결과 시트: `결과`, `확인사항`
+- 파일 탑재 미리보기와 실제 변환 실행 중 진행률 창 표시
+- 대용량 파일도 파일 읽기, 열 감지, 변환, 저장 단계를 진행률로 표시
+
+### 6. 피벗 요약표 만들기
 
 부서별, 기관별, 월별, 상태별 요약표를 만듭니다.
 
@@ -179,7 +191,7 @@ dist\VHLookupLocal_pivot_v1.2.exe
 
 ## 샘플 데이터
 
-샘플은 프로그램 안에서 새로 만들지 않고 파일로 제공합니다. 폴더는 실행 화면의 1~5번 기능 순서에 맞춰 정리되어 있습니다.
+샘플은 프로그램 안에서 새로 만들지 않고 파일로 제공합니다. 폴더는 실행 화면의 1~6번 기능 순서에 맞춰 정리되어 있습니다.
 
 ```text
 samples\public_admin
@@ -202,9 +214,9 @@ samples\public_admin
 │  └─ large_column_merge_10k
 ├─ 04_before_after_validation
 │  └─ large_before_after_diagonal_10k
-├─ 05_pivot_summary
-├─ 06_submission_reconciliation
-└─ 07_horizontal_table
+├─ 05_horizontal_table
+│  └─ large_monthly_budget_wide_10k.csv
+└─ 06_pivot_summary
 ```
 
 ### 메뉴별 샘플
@@ -298,23 +310,37 @@ samples\public_admin
 - 예상 규모: 각 파일 10,000행 x 50열
 - 확인 포인트: `검증ID` 키는 그대로 두고, 후 파일의 `항목01`~`항목49` 대각선 49개 셀만 다른 글자로 변경되어 노란색과 메모로 표시되는지 확인
 
+**월별 가로표 세로 변환**
+
+- 누를 기능: `5. 가로세로 변환`
+- 선택할 파일: `samples\public_admin\05_horizontal_table\monthly_budget_wide.csv`
+- 화면 선택값: 행 기준 컬럼 자동 추천 확인
+- 결과에서 먼저 볼 시트: `결과`
+- 그 다음 참고 시트: `확인사항`
+- 확인 포인트: `1월`~`4월` 컬럼이 `열 기준`, `값` 컬럼으로 변환되는지 확인
+
+**대용량 가로세로 변환 샘플**
+
+- 누를 기능: `5. 가로세로 변환`
+- 선택할 파일: `samples\public_admin\05_horizontal_table\large_monthly_budget_wide_10k.csv`
+- 예상 규모: 입력 10,000행 x 17열, 결과 120,000행
+- 확인 포인트: 파일 탑재 미리보기와 실행 중 진행률 창에 파일 읽기/열 감지/변환/저장 단계가 표시되는지 확인
+
 **부서/월별 예산 피벗**
 
-- 누를 기능: `5. 피벗 요약표 만들기`
-- 선택할 파일: `samples\public_admin\05_pivot_summary\budget_execution.csv`
+- 누를 기능: `6. 피벗 요약표 만들기`
+- 선택할 파일: `samples\public_admin\06_pivot_summary\budget_execution.csv`
 - 화면 선택값: 행 기준 `부서`, 열 기준 `월`, 값 열 `금액`, 집계 방식 `합계`
 - 결과에서 먼저 볼 시트: `피벗요약`
 - 그 다음 참고 시트: `확인사항`
 
 **상태별 처리 건수 피벗**
 
-- 누를 기능: `5. 피벗 요약표 만들기`
-- 선택할 파일: `samples\public_admin\05_pivot_summary\budget_execution.csv`
+- 누를 기능: `6. 피벗 요약표 만들기`
+- 선택할 파일: `samples\public_admin\06_pivot_summary\budget_execution.csv`
 - 화면 선택값: 행 기준 `상태`, 열 기준 `(선택 안 함)`, 값 열 `(행 개수)`, 집계 방식 `건수`
 - 결과에서 먼저 볼 시트: `피벗요약`
 - 그 다음 참고 시트: `확인사항`
-
-제출대상 누락 확인과 월별 가로표 변환 샘플도 `06_submission_reconciliation`, `07_horizontal_table`처럼 항목별 폴더에 배치했습니다.
 
 샘플 종류와 확인 포인트는 [docs/sample_catalog.md](docs/sample_catalog.md)에 더 자세히 정리되어 있습니다.
 
@@ -373,6 +399,7 @@ $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest
 - 다른 이름의 컬럼과 앞자리 0이 다른 키 자동 매칭
 - 전/후 파일 검증
 - 전/후 파일 검증의 추가 행, 빠진 행, 이름이 바뀐 컬럼 비교
+- 가로세로 변환
 - 피벗 요약표
 - 공공기관 행정 샘플 처리
 
@@ -384,8 +411,7 @@ $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest
 python -m vhlookup_cli.main inspect --path "C:\path\submissions" --out inspect.xlsx
 python -m vhlookup_cli.main consolidate --folder "C:\path\submissions" --out result.xlsx
 python -m vhlookup_cli.main lookup --reference master.xlsx --target submitted.xlsx --out lookup_result.xlsx
-python -m vhlookup_cli.main reconcile --reference expected.xlsx --target received.xlsx --out missing_result.xlsx
-python -m vhlookup_cli.main horizontal --file monthly.xlsx --out monthly_long.xlsx
+python -m vhlookup_cli.main horizontal --file monthly_wide.xlsx --out monthly_long.xlsx
 ```
 
 비개발자용 기본 사용은 CLI가 아니라 배포용 `VHLookupLocal_pivot_v1.2.exe` 실행입니다.
@@ -399,7 +425,7 @@ python -m vhlookup_cli.main horizontal --file monthly.xlsx --out monthly_long.xl
 
 ## 구조
 
-- `src/vhlookup_core`: 파일 로더, 헤더 탐지, 컬럼 매칭, 수합, 대조, 피벗, 리포트 작성
+- `src/vhlookup_core`: 파일 로더, 헤더 탐지, 컬럼 매칭, 수합, 대조, 가로세로 변환, 피벗, 리포트 작성
 - `src/vhlookup_app`: Windows 데스크톱 GUI
 - `src/vhlookup_cli`: 명령어 실행 도구
 - `samples`: 샘플 데이터

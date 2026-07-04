@@ -1,6 +1,6 @@
-﻿# 샘플 데이터 카탈로그
+# 샘플 데이터 카탈로그
 
-`samples/public_admin` 아래 샘플은 공공기관 행정직이 바로 눌러볼 수 있도록 실행 화면의 1~5번 기능 순서로 나뉘어 있습니다.
+`samples/public_admin` 아래 샘플은 실행 화면의 1~6번 기능 순서로 나뉘어 있습니다.
 
 기본 폴더:
 
@@ -8,9 +8,8 @@
 - `02_split_sheets`: 2번 분류별 시트 나누기
 - `03_merge_files`: 3번 행/열 합치기
 - `04_before_after_validation`: 4번 전/후 파일 검증
-- `05_pivot_summary`: 5번 피벗 요약표 만들기
-- `06_submission_reconciliation`: 제출 대상 누락 확인
-- `07_horizontal_table`: 월별 가로표 세로 변환
+- `05_horizontal_table`: 5번 가로세로 변환
+- `06_pivot_summary`: 6번 피벗 요약표 만들기
 
 전체 데모 실행:
 
@@ -24,188 +23,123 @@ run_demo.bat 더블클릭
 python scripts\run_public_admin_demo.py
 ```
 
-결과는 `demo_output` 폴더에 생성됩니다. `run_demo.bat`으로 실행하면 생성 후 폴더가 자동으로 열립니다.
+결과는 `demo_output` 폴더에 생성됩니다. 먼저 `demo_output/00_샘플_둘러보기.xlsx`를 열어 기능 순서와 확인 포인트를 봅니다.
 
-먼저 열어볼 파일:
-
-- `demo_output/00_샘플_둘러보기.xlsx`
-
-이 파일의 `업무템플릿` 시트에서 CLI에 넣을 템플릿 ID와 표준 컬럼을 확인할 수 있습니다.
-각 결과 파일의 `확인사항` 시트에는 자동 매칭 근거, 한쪽 파일에만 있는 행/열, 개인정보 의심 요약이 함께 표시됩니다.
-
-CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블클릭합니다. 결과는 `cli_output` 폴더에 생성됩니다.
-`cli_output/00_inspect_cli.xlsx`는 실제 수합 전 헤더 행과 컬럼 매칭을 미리 확인하는 사전점검 예시입니다.
-
-## 01. 제출자료 수합
+## 01. 개인정보 마스킹
 
 입력:
+
+- `samples/public_admin/01_privacy_masking/citizen_service_requests.csv`
+
+결과:
+
+- `demo_output/01_개인정보_마스킹결과.xlsx`
+
+확인 포인트:
+
+- 이름, 주민등록번호/외국인등록번호, 연락처, 이메일, 계좌번호, 주소가 가려집니다.
+- 성별, 나이, 생년월일과 문장 안의 생년월일 표현도 가려집니다.
+- `마스킹내역` 시트에는 원본 값 없이 위치와 유형만 남습니다.
+
+## 02. 분류별 시트 나누기
+
+입력:
+
+- `samples/public_admin/02_split_sheets/budget_execution.csv`
+
+결과:
+
+- `demo_output/02_분류별_시트나누기.xlsx`
+
+추천 선택:
+
+- 분류 기준열: `부서`
+
+확인 포인트:
+
+- 부서별 시트가 자동 생성됩니다.
+- `전체` 시트에는 원본 전체 데이터가 보존됩니다.
+
+## 03. 엑셀/CSV 파일 여러 개 합치기
+
+입력 예시:
 
 - `samples/public_admin/03_merge_files/row_merge_school_submissions/gangbuk_school.csv`
 - `samples/public_admin/03_merge_files/row_merge_school_submissions/gangnam_school.csv`
 
 결과:
 
-- `demo_output/01_제출자료_수합결과.xlsx`
+- `demo_output/03_제출자료_수합결과.xlsx`
+
+추가 샘플:
+
+- `samples/public_admin/03_merge_files/row_merge_messy_headers`
+- `samples/public_admin/03_merge_files/row_merge_submission_errors`
+- `samples/public_admin/03_merge_files/column_merge_hr_training`
+- `samples/public_admin/03_merge_files/column_merge_allowance_budget`
+- `samples/public_admin/03_merge_files/large_column_merge_10k`
 
 확인 포인트:
 
 - 제목 행과 안내문을 건너뛰고 실제 헤더를 찾습니다.
 - `제출기관`, `담당자명`, `작성일`, `신청액` 같은 다른 표현을 표준 컬럼에 맞춥니다.
-- 결과 첫 시트에는 실제 업무 컬럼만 남깁니다.
-- 자동 매칭 근거와 확인할 점은 `확인사항` 시트에 남깁니다.
+- 행 합치기와 열 합치기를 자동 추천합니다.
+- 대용량 열 합치기 샘플은 입력 10,000행 x 71열 파일 2개이며, 결과는 10,000행 x 141열입니다.
+- 대용량 실행 중 진행률 창에서 파일 읽기, 키 찾기, 결과 저장 단계가 표시됩니다.
 
-## 02. 오류 검증 제출자료
-
-입력:
-
-- `samples/public_admin/03_merge_files/row_merge_submission_errors/bad_school_a.csv`
-- `samples/public_admin/03_merge_files/row_merge_submission_errors/bad_school_b.csv`
-
-결과:
-
-- `demo_output/02_오류검증_제출자료.xlsx`
-
-확인 포인트:
-
-- 필수값 누락
-- 숫자 오류
-- 날짜 오류
-- 중복 제출 의심
-- `확인사항` 시트의 조치 안내
-
-## 03. 교육이수 명단 대조
-
-입력:
-
-- `samples/public_admin/03_merge_files/column_merge_hr_training/hr_employee_master.csv`
-- `samples/public_admin/03_merge_files/column_merge_hr_training/hr_training_completion.csv`
-
-결과:
-
-- `demo_output/03_교육이수_명단대조.xlsx`
-
-확인 포인트:
-
-- `사번`과 `직원번호`를 자동으로 연결합니다.
-- 기준명단의 `성명`, `부서`, `직급`, `소속`을 교육이수 명단에 붙입니다.
-- `00123`과 `123`처럼 형식이 다른 키는 자동으로 몰래 붙이지 않고 `형식 불일치`로 분리합니다.
-- 한쪽 파일에만 있는 `00999` 같은 기준값도 결과에 남기고 빈 칸은 노란색 메모로 표시합니다.
-
-## 04. 교육 누락자 확인
-
-입력:
-
-- `samples/public_admin/03_merge_files/column_merge_hr_training/hr_employee_master.csv`
-- `samples/public_admin/03_merge_files/column_merge_hr_training/hr_training_completion.csv`
-
-결과:
-
-- `demo_output/04_교육누락자_대조결과.xlsx`
-
-확인 포인트:
-
-- 기준명단에만 있는 사람
-- 교육이수 명단에만 있는 사람
-- 양쪽 모두 있는 사람
-
-## 05. 수당/예산 기준표 대조
-
-입력:
-
-- `samples/public_admin/03_merge_files/column_merge_allowance_budget/rate_reference.csv`
-- `samples/public_admin/03_merge_files/column_merge_allowance_budget/payment_requests.csv`
-
-결과:
-
-- `demo_output/05_수당예산_대조결과.xlsx`
-
-확인 포인트:
-
-- 복합 키 `사번 + 지급월`
-- `직원번호`와 `사번` 자동 연결
-- 단가, 지급기준, 예산과목 자동 붙이기
-- 기준표에 없는 신청자 분리
-
-## 06. 제출 대상 누락 확인
-
-입력:
-
-- `samples/public_admin/06_submission_reconciliation/expected_submitters.csv`
-- `samples/public_admin/06_submission_reconciliation/received_submitters.csv`
-
-결과:
-
-- `demo_output/06_제출대상_누락확인.xlsx`
-
-확인 포인트:
-
-- 제출 대상인데 제출하지 않은 기관
-- 대상 명단에 없는데 제출한 기관
-
-## 07. 부서별 현황 수합
-
-입력:
-
-- `samples/public_admin/03_merge_files/row_merge_messy_headers/department_status_a.csv`
-- `samples/public_admin/03_merge_files/row_merge_messy_headers/department_status_b.csv`
-
-결과:
-
-- `demo_output/07_부서별현황_수합결과.xlsx`
-
-확인 포인트:
-
-- 제목, 작성일, 안내문이 앞에 있어도 실제 헤더를 찾습니다.
-- `담당 부서`와 `소속`, `현원`과 `인원수`를 같은 표준 컬럼으로 맞춥니다.
-
-## 08. 월별 가로표 세로 변환
-
-입력:
-
-- `samples/public_admin/07_horizontal_table/monthly_budget_wide.csv`
-
-결과:
-
-- `demo_output/08_월별가로표_세로변환.xlsx`
-
-확인 포인트:
-
-- `1월`, `2월`, `3월` 컬럼을 자동 감지합니다.
-- 월별 가로표를 `기관명`, `항목`, `열 기준`, `값` 형태로 변환합니다.
-
-## 09. 전/후 파일 검증
+## 04. 전/후 파일 검증
 
 입력:
 
 - `samples/public_admin/04_before_after_validation/payment_before.csv`
 - `samples/public_admin/04_before_after_validation/payment_after.csv`
 
-확인 포인트:
+결과:
 
-- 같은 사번의 변경된 금액을 찾습니다.
-- 전 파일에만 있거나 후 파일에만 있는 행을 분리합니다.
-- 결과 엑셀의 `후파일_메모` 시트에서 변경된 셀의 메모를 확인합니다.
-- 행 추가/누락과 컬럼 변경은 `확인사항` 시트에서 확인합니다.
+- `demo_output/04_전후파일_검증결과.xlsx`
 
-## 10. 대용량 전/후 파일 대각선 변경 검증
-
-입력:
+대용량 샘플:
 
 - `samples/public_admin/04_before_after_validation/large_before_after_diagonal_10k/before_10k_50cols.csv`
 - `samples/public_admin/04_before_after_validation/large_before_after_diagonal_10k/after_diagonal_changes_10k_50cols.csv`
 
 확인 포인트:
 
-- 각 파일은 10,000행 x 50열입니다.
-- `검증ID` 키는 양쪽 모두 같습니다.
-- 후 파일의 `항목01`~`항목49` 대각선 49개 셀만 다른 글자로 바뀌어 있습니다.
-- 변경 셀이 노란색과 메모로 표시되는지 확인합니다.
+- 같은 사번의 변경된 금액을 찾습니다.
+- 전 파일에만 있거나 후 파일에만 있는 행을 분리합니다.
+- 변경된 셀은 `후파일_메모` 시트에서 노란색과 메모로 표시됩니다.
+- 대용량 샘플은 각 파일 10,000행 x 50열이며, 후 파일의 `항목01`~`항목49` 대각선 49개 셀만 바뀌어 있습니다.
 
-## 11. 피벗 요약표 만들기
+## 05. 가로세로 변환
 
 입력:
 
-- `samples/public_admin/05_pivot_summary/budget_execution.csv`
+- `samples/public_admin/05_horizontal_table/monthly_budget_wide.csv`
+
+결과:
+
+- `demo_output/05_가로세로변환_결과.xlsx`
+
+대용량 샘플:
+
+- `samples/public_admin/05_horizontal_table/large_monthly_budget_wide_10k.csv`
+
+확인 포인트:
+
+- `1월`, `2월`, `3월`, `4월` 같은 월별 컬럼을 자동 감지합니다.
+- 월별 가로표를 `기관명`, `사업구분`, `담당부서`, `비고`, `열 기준`, `값` 형태로 변환합니다.
+- 대용량 샘플은 입력 10,000행 x 17열이며, 변환 결과는 120,000행입니다.
+- 파일 탑재 미리보기와 실행 중 진행률 창에서 파일 읽기, 열 감지, 변환, 저장 단계가 표시됩니다.
+
+## 06. 피벗 요약표 만들기
+
+입력:
+
+- `samples/public_admin/06_pivot_summary/budget_execution.csv`
+
+결과:
+
+- `demo_output/06_피벗요약표_결과.xlsx`
 
 추천 선택:
 
@@ -217,25 +151,5 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 확인 포인트:
 
 - 부서별/월별 예산 집행 합계를 `피벗요약` 시트로 만듭니다.
-- 기준 설명과 상위 항목은 `확인사항` 시트에서 확인합니다.
 - `건수` 집계를 선택하면 값 열 없이 행 개수를 요약할 수 있습니다.
-
-## 12. 대용량 열 합치기 성능 확인
-
-입력:
-
-- `samples/public_admin/03_merge_files/large_column_merge_10k/large_employee_master_10k.xlsx`
-- `samples/public_admin/03_merge_files/large_column_merge_10k/large_training_results_10k.xlsx`
-
-추천 선택:
-
-- 메뉴: `3. 엑셀/CSV 파일 여러 개 합치기`
-- 합치기 방향: `자동 선택` 또는 `열 합치기`
-
-확인 포인트:
-
-- 각 파일은 10,000행 x 71열입니다.
-- 결과는 10,000행 x 141열입니다.
-- `사번`과 `직원번호`를 자동 키로 잡습니다.
-- 실행 중 진행률 창에서 파일 읽기, 키 찾기, 결과 저장 단계가 표시됩니다.
-- 실제 개인정보가 아닌 합성 식별자와 테스트 값만 들어 있습니다.
+- 기준 설명과 상위 항목은 `확인사항` 시트에서 확인합니다.
