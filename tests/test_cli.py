@@ -33,7 +33,7 @@ def test_cli_consolidate_generates_review_ready_workbook(tmp_path):
     assert set(sheets) == {"결과", "확인사항"}
     assert len(sheets["결과"]) == 4
     privacy_rows = sheets["확인사항"][sheets["확인사항"]["구분"] == "개인정보 의심"]
-    assert {"연락처", "담당자"} <= set(privacy_rows["기준/컬럼"])
+    assert privacy_rows.empty
 
 
 def test_cli_templates_exports_catalog(tmp_path):

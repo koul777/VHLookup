@@ -106,7 +106,7 @@ def run_consolidate(args: argparse.Namespace) -> None:
     template = get_template(args.template) if args.template else None
     columns = split_columns(args.columns) or None
     result = ConsolidationEngine().consolidate_folder(args.folder, standard_columns=columns, template=template)
-    ReportWriter().write_xlsx(result, args.out, mark_result_cells=False)
+    ReportWriter().write_xlsx(result, args.out, mark_result_cells=False, include_privacy_scan=False)
     print_result(args.out, result)
 
 

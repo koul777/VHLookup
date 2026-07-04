@@ -125,7 +125,7 @@ def test_column_merge_marks_unmatched_attached_cells_with_comment(tmp_path):
     file_two = HR_SAMPLES / "hr_training_completion.csv"
 
     result = ConsolidationEngine().merge_files_by_columns([file_one, file_two])
-    ReportWriter().write_xlsx(result, output)
+    ReportWriter().write_xlsx(result, output, include_privacy_scan=False)
 
     assert len(result.result_frame) == 4
     assert result.result_frame.loc[2, "사번"] == "00125"
@@ -146,6 +146,7 @@ def test_column_merge_marks_unmatched_attached_cells_with_comment(tmp_path):
     missing_cell = result_sheet.cell(row=4, column=education_column)
     reference_only_cell = result_sheet.cell(row=5, column=name_column)
     base_cell = result_sheet.cell(row=4, column=base_column)
+    existing_name_cell = result_sheet.cell(row=2, column=name_column)
 
     assert missing_cell.value is None
     assert missing_cell.fill.fgColor.rgb in {"00FDE68A", "FDE68A"}
@@ -156,6 +157,8 @@ def test_column_merge_marks_unmatched_attached_cells_with_comment(tmp_path):
     assert reference_only_cell.comment is not None
     assert "2번째 파일(hr_training_completion.csv)에만 있는 기준값입니다." in reference_only_cell.comment.text
     assert base_cell.comment is None
+    assert existing_name_cell.comment is None
+    assert existing_name_cell.fill.fgColor.rgb not in {"00FDE68A", "FDE68A"}
 
 
 def test_report_writer_extracts_error_rows(tmp_path):
@@ -181,7 +184,7 @@ def test_report_writer_can_leave_merge_result_unmarked(tmp_path):
         template="school_submission_consolidation",
     )
 
-    ReportWriter().write_xlsx(result, output, mark_result_cells=False)
+    ReportWriter().write_xlsx(result, output, mark_result_cells=False, include_privacy_scan=False)
     workbook = load_workbook(output)
     result_sheet = workbook[SHEET_RESULT]
 

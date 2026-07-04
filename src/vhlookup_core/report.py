@@ -101,12 +101,15 @@ class ReportWriter:
         path: str | Path,
         include_sensitive_details: bool = False,
         mark_result_cells: bool = True,
+        include_privacy_scan: bool = True,
     ) -> Path:
         output_path = Path(path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
             result.result_frame.to_excel(writer, sheet_name=SHEET_RESULT, index=False)
-            privacy_records = result.privacy_records or PrivacyScanner().scan_frame(result.result_frame)
+            privacy_records = result.privacy_records or (
+                PrivacyScanner().scan_frame(result.result_frame) if include_privacy_scan else []
+            )
             self._review_frame(result, privacy_records, include_sensitive_details).to_excel(
                 writer, sheet_name=SHEET_REVIEW, index=False
             )

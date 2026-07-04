@@ -34,6 +34,7 @@ class WorkbookDiffResult:
     row_frame: pd.DataFrame
     summary: dict[str, Any]
     comments: list[CellComment] = field(default_factory=list)
+    before_to_after: dict[str, str] = field(default_factory=dict)
 
 
 class WorkbookDiffEngine:
@@ -159,6 +160,7 @@ class WorkbookDiffEngine:
             row_frame=pd.DataFrame(row_rows),
             summary=summary,
             comments=comments,
+            before_to_after=before_to_after,
         )
 
     def suggest_column_mapping(self, before_frame: pd.DataFrame, after_frame: pd.DataFrame) -> dict[str, str]:
@@ -448,15 +450,55 @@ class WorkbookDiffEngine:
 
 
 class WorkbookDiffReportWriter:
+    ADDED_ROW_FILL = "BFDBFE"
+    MISSING_ROW_FILL = "FECACA"
+
     def write_xlsx(self, result: WorkbookDiffResult, path: str | Path) -> Path:
         output_path = Path(path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
-            result.after_frame.to_excel(writer, sheet_name="후파일_메모", index=False)
+            self._annotated_after_frame(result).to_excel(writer, sheet_name="후파일_메모", index=False)
             self._review_frame(result).to_excel(writer, sheet_name="확인사항", index=False)
             self._apply_comments(writer.book, result)
+            self._apply_row_highlights(writer.book, result)
             self._style_workbook(writer.book)
         return output_path
+
+    def _annotated_after_frame(self, result: WorkbookDiffResult) -> pd.DataFrame:
+        display_columns = list(result.after_frame.columns) or list(result.before_frame.columns)
+        annotated = result.after_frame.loc[:, display_columns].copy() if display_columns else result.after_frame.copy()
+        missing_rows = self._missing_row_records(result, display_columns)
+        if not missing_rows:
+            return annotated
+        return pd.concat([annotated, pd.DataFrame(missing_rows, columns=display_columns)], ignore_index=True)
+
+    def _missing_row_records(self, result: WorkbookDiffResult, display_columns: list[str]) -> list[dict[str, object]]:
+        if result.before_frame.empty or result.row_frame.empty:
+            return []
+
+        missing = result.row_frame[result.row_frame["상태"] == "후 파일에 행 없음"]
+        if missing.empty:
+            return []
+
+        after_to_before = {after_column: before_column for before_column, after_column in result.before_to_after.items()}
+        rows: list[dict[str, object]] = []
+        for _, missing_row in missing.iterrows():
+            try:
+                before_index = int(missing_row.get("전 파일 행", "")) - 2
+            except (TypeError, ValueError):
+                continue
+            if not 0 <= before_index < len(result.before_frame):
+                continue
+
+            row: dict[str, object] = {}
+            for display_column in display_columns:
+                before_column = after_to_before.get(
+                    display_column,
+                    display_column if display_column in result.before_frame.columns else "",
+                )
+                row[display_column] = result.before_frame.at[before_index, before_column] if before_column else ""
+            rows.append(row)
+        return rows
 
     def _review_frame(self, result: WorkbookDiffResult) -> pd.DataFrame:
         rows: list[dict[str, object]] = []
@@ -651,6 +693,51 @@ class WorkbookDiffReportWriter:
             cell = sheet.cell(row=comment.row_index + 2, column=column)
             cell.comment = make_comment(comment.message)
             cell.fill = PatternFill("solid", fgColor=comment.fill)
+
+    def _apply_row_highlights(self, workbook, result: WorkbookDiffResult) -> None:
+        if "후파일_메모" not in workbook.sheetnames:
+            return
+        sheet = workbook["후파일_메모"]
+        data_column_count = sheet.max_column
+
+        for _, row_diff in result.row_frame.iterrows():
+            status = str(row_diff.get("상태", ""))
+            if status != "전 파일에 없던 행":
+                continue
+            try:
+                row_number = int(row_diff.get("후 파일 행", ""))
+            except (TypeError, ValueError):
+                continue
+            if row_number >= 2:
+                self._mark_row(
+                    sheet,
+                    row_number,
+                    data_column_count,
+                    self.ADDED_ROW_FILL,
+                    "전 파일에 없던 행입니다. 후 파일에서 새로 추가된 행인지 확인하세요.",
+                )
+
+        appended_row_number = len(result.after_frame) + 2
+        for _, row_diff in result.row_frame.iterrows():
+            status = str(row_diff.get("상태", ""))
+            if status != "후 파일에 행 없음":
+                continue
+            self._mark_row(
+                sheet,
+                appended_row_number,
+                data_column_count,
+                self.MISSING_ROW_FILL,
+                "후 파일에서 사라진 행입니다. 전 파일에는 있었지만 후 파일에는 없습니다.",
+            )
+            appended_row_number += 1
+
+    def _mark_row(self, sheet, row_number: int, column_count: int, fill: str, message: str) -> None:
+        row_fill = PatternFill("solid", fgColor=fill)
+        for column_number in range(1, column_count + 1):
+            sheet.cell(row=row_number, column=column_number).fill = row_fill
+        first_cell = sheet.cell(row=row_number, column=1)
+        if first_cell.comment is None:
+            first_cell.comment = make_comment(message)
 
     def _style_workbook(self, workbook) -> None:
         header_fill = PatternFill("solid", fgColor="1F6F5F")

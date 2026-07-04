@@ -78,23 +78,40 @@ def test_workbook_diff_reports_missing_rows_with_original_values(tmp_path):
         {
             "사번": ["E001", "E002", "E003"],
             "성명": ["홍길동", "김영희", "박철수"],
+            "부서": ["총무", "회계", "민원"],
+            "지급월": ["2026-06", "2026-06", "2026-06"],
             "금액": [100000, 150000, 120000],
+            "비고": ["정상", "정상", "정상"],
         }
     ).to_excel(before, index=False)
     pd.DataFrame(
         {
             "사번": ["E001", "E002", "E004"],
             "성명": ["홍길동", "김영희", "최민수"],
+            "부서": ["총무", "회계", "복지"],
+            "지급월": ["2026-06", "2026-06", "2026-06"],
             "금액": [100000, 170000, 130000],
+            "비고": ["정상", "금액 수정", "추가"],
         }
     ).to_excel(after, index=False)
 
     result = WorkbookDiffEngine().compare_files(before, after)
     WorkbookDiffReportWriter().write_xlsx(result, output)
     sheets = pd.read_excel(output, sheet_name=None)
+    workbook = load_workbook(output)
+    memo_sheet = workbook["후파일_메모"]
 
     assert result.summary["missing_row_count"] == 1
     assert result.summary["added_row_count"] == 1
+    assert memo_sheet["A4"].value == "E004"
+    assert memo_sheet["A5"].value == "E003"
+    assert all(memo_sheet.cell(row=4, column=column).fill.fgColor.rgb in {"00BFDBFE", "BFDBFE"} for column in range(1, 7))
+    assert all(memo_sheet.cell(row=5, column=column).fill.fgColor.rgb in {"00FECACA", "FECACA"} for column in range(1, 7))
+    assert memo_sheet["A4"].comment is not None
+    assert "전 파일에 없던 행" in memo_sheet["A4"].comment.text
+    assert memo_sheet["A5"].comment is not None
+    assert "후 파일에서 사라진 행" in memo_sheet["A5"].comment.text
+    assert memo_sheet["E3"].fill.fgColor.rgb in {"00FDE68A", "FDE68A"}
     review = sheets["확인사항"]
     missing_row = review[review["비교 기준"] == "E003"].iloc[0]
     assert "박철수" in missing_row["전 값"]

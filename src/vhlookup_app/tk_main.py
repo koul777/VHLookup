@@ -193,20 +193,30 @@ def generate_demo_reports(output_dir: Path, samples_dir: Path) -> list[Path]:
         merge_samples / "row_merge_school_submissions",
         template="school_submission_consolidation",
     )
-    writer.write_xlsx(consolidated, output_dir / "01_제출자료_수합결과.xlsx", mark_result_cells=False)
+    writer.write_xlsx(
+        consolidated,
+        output_dir / "01_제출자료_수합결과.xlsx",
+        mark_result_cells=False,
+        include_privacy_scan=False,
+    )
 
     invalid_consolidated = ConsolidationEngine().consolidate_folder(
         merge_samples / "row_merge_submission_errors",
         template="school_submission_consolidation",
     )
-    writer.write_xlsx(invalid_consolidated, output_dir / "02_오류검증_제출자료.xlsx", mark_result_cells=False)
+    writer.write_xlsx(
+        invalid_consolidated,
+        output_dir / "02_오류검증_제출자료.xlsx",
+        mark_result_cells=False,
+        include_privacy_scan=False,
+    )
 
     employee_master = load_table(hr_samples / "hr_employee_master.csv")
     training = load_table(hr_samples / "hr_training_completion.csv")
     lookup = ConsolidationEngine().merge_files_by_columns(
         [hr_samples / "hr_employee_master.csv", hr_samples / "hr_training_completion.csv"]
     )
-    writer.write_xlsx(lookup, output_dir / "03_교육이수_명단대조.xlsx")
+    writer.write_xlsx(lookup, output_dir / "03_교육이수_명단대조.xlsx", include_privacy_scan=False)
 
     reconciliation_plan = AutoLookupPlanner().infer_reconciliation_key_spec(employee_master, training)
     reconciliation = ReconciliationEngine().compare_lists(
@@ -260,7 +270,12 @@ def generate_demo_reports(output_dir: Path, samples_dir: Path) -> list[Path]:
         merge_samples / "row_merge_messy_headers",
         template="department_status_consolidation",
     )
-    writer.write_xlsx(department_status, output_dir / "07_부서별현황_수합결과.xlsx", mark_result_cells=False)
+    writer.write_xlsx(
+        department_status,
+        output_dir / "07_부서별현황_수합결과.xlsx",
+        mark_result_cells=False,
+        include_privacy_scan=False,
+    )
 
     monthly = load_table(extra_samples / "horizontal_table" / "monthly_budget_wide.csv")
     converted = HorizontalTableEngine().wide_to_long(monthly, id_columns=["기관명", "항목"])
@@ -1078,7 +1093,7 @@ class LocalApp:
                         template=None,
                         saved_mappings_by_file=manual_row_mappings,
                     )
-                ReportWriter().write_xlsx(result, output, mark_result_cells=True)
+                ReportWriter().write_xlsx(result, output, mark_result_cells=True, include_privacy_scan=False)
                 return [output]
 
             label = "열 방향 파일 합치기" if selected_mode == "columns" else "행 방향 파일 합치기"
@@ -1596,7 +1611,7 @@ class LocalApp:
                 template="school_submission_consolidation",
             )
             output = Path(self.consolidate_output.get())
-            ReportWriter().write_xlsx(result, output, mark_result_cells=False)
+            ReportWriter().write_xlsx(result, output, mark_result_cells=False, include_privacy_scan=False)
             return [output]
 
         self._run("제출자료 수합", job, open_path=Path(self.consolidate_output.get()).parent)
