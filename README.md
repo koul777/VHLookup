@@ -2,9 +2,12 @@
 
 공공기관, 교육청, 학교, HR, 총무, 예산 담당자가 반복하는 엑셀 수합, 대조, 검증, 요약 업무를 로컬 PC에서 처리하는 Windows용 업무 자동화 도구입니다.
 
-비개발자 사용자는 Python이나 개발 환경을 몰라도 됩니다. 배포 담당자가 제공한 `VHLookupLocal_pivot.exe`를 더블클릭해서 사용합니다.
+비개발자 사용자는 Python이나 개발 환경을 몰라도 됩니다. 아래 Windows 실행파일을 내려받아 더블클릭해서 사용합니다.
 
-GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을 포함하지 않습니다. GitHub Release에 exe가 첨부되어 있는 경우에만 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 내려받을 수 있습니다. Release에 첨부 파일이 없으면 다운로드할 수 없고, 배포 담당자가 `build_exe.bat`으로 만든 `dist\VHLookupLocal_pivot.exe`를 별도로 전달하거나 Release에 첨부해야 합니다.
+- [최신 Windows 실행파일 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_pivot.exe)
+- 직접 다운로드가 안 되면 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 `VHLookupLocal_pivot.exe`를 내려받습니다.
+
+GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을 포함하지 않습니다. exe 파일은 GitHub Release 첨부파일로 배포합니다.
 
 소스에서 직접 실행 파일을 만들려면 `build_exe.bat`을 실행합니다. 빌드가 끝나면 아래 위치에 exe가 생성됩니다.
 
@@ -264,10 +267,10 @@ python -m vhlookup_cli.main horizontal --file monthly.xlsx --out monthly_long.xl
 
 비개발자용 기본 사용은 CLI가 아니라 배포용 `VHLookupLocal_pivot.exe` 실행입니다.
 
-## 문서
+## 관련 문서
 
 - [실행안내.md](실행안내.md): 비개발자용 실행 순서
-- [docs/update_notes_2026-07-04.md](docs/update_notes_2026-07-04.md): 2026-07-04 업데이트 내역
+- [docs/update_notes_2026-07-04.md](docs/update_notes_2026-07-04.md): 2026-07-04 상세 변경 내역
 - [docs/sample_catalog.md](docs/sample_catalog.md): 샘플 데이터 카탈로그
 - [docs/security_review_brief.md](docs/security_review_brief.md): 보안 검토 설명
 
