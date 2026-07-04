@@ -453,28 +453,108 @@ class WorkbookDiffReportWriter:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
             result.after_frame.to_excel(writer, sheet_name="후파일_메모", index=False)
-            self._guide_frame(result).to_excel(writer, sheet_name="먼저확인", index=False)
-            self._frame_or_empty(result.diff_frame, ["상태", "비교 기준", "컬럼명", "전 값", "후 값", "후 파일 셀"]).to_excel(
-                writer, sheet_name="차이목록", index=False
-            )
-            self._frame_or_empty(result.column_frame, ["상태", "전 파일 컬럼", "후 파일 컬럼"]).to_excel(
-                writer, sheet_name="컬럼비교", index=False
-            )
-            self._frame_or_empty(result.row_frame, ["상태", "비교 기준", "전 파일 행", "후 파일 행"]).to_excel(
-                writer, sheet_name="행비교", index=False
-            )
-            changed_rows = self._changed_rows_frame(result)
-            if not changed_rows.empty:
-                changed_rows.to_excel(writer, sheet_name="차이행만", index=False)
-            missing_rows = self._missing_rows_frame(result)
-            if not missing_rows.empty:
-                missing_rows.to_excel(writer, sheet_name="빠진행", index=False)
-            pd.DataFrame([{"항목": key, "값": value} for key, value in result.summary.items()]).to_excel(
-                writer, sheet_name="점검요약", index=False
-            )
+            self._review_frame(result).to_excel(writer, sheet_name="확인사항", index=False)
             self._apply_comments(writer.book, result)
             self._style_workbook(writer.book)
         return output_path
+
+    def _review_frame(self, result: WorkbookDiffResult) -> pd.DataFrame:
+        rows: list[dict[str, object]] = []
+        columns = ["구분", "상태", "비교 기준", "컬럼명", "전 값", "후 값", "위치", "확인할 점"]
+
+        for _, diff_row in result.diff_frame.iterrows():
+            if not str(diff_row.get("컬럼명", "") or "").strip():
+                continue
+            rows.append(
+                {
+                    "구분": "값 변경",
+                    "상태": diff_row.get("상태", ""),
+                    "비교 기준": diff_row.get("비교 기준", ""),
+                    "컬럼명": diff_row.get("컬럼명", ""),
+                    "전 값": diff_row.get("전 값", ""),
+                    "후 값": diff_row.get("후 값", ""),
+                    "위치": diff_row.get("후 파일 셀", ""),
+                    "확인할 점": "첫 시트의 색칠된 셀 메모를 확인하세요.",
+                }
+            )
+
+        for _, row_diff in result.row_frame.iterrows():
+            status = str(row_diff.get("상태", ""))
+            detail = ""
+            if status == "후 파일에 행 없음":
+                detail = self._before_row_detail(result, row_diff.get("전 파일 행", ""))
+            rows.append(
+                {
+                    "구분": "행 추가/누락",
+                    "상태": status,
+                    "비교 기준": row_diff.get("비교 기준", ""),
+                    "컬럼명": "",
+                    "전 값": detail,
+                    "후 값": "",
+                    "위치": f"전 {row_diff.get('전 파일 행', '')} / 후 {row_diff.get('후 파일 행', '')}",
+                    "확인할 점": "한쪽 파일에만 있는 행입니다. 누락인지 추가 대상인지 확인하세요.",
+                }
+            )
+
+        for _, column_diff in result.column_frame.iterrows():
+            rows.append(
+                {
+                    "구분": "컬럼 변경",
+                    "상태": column_diff.get("상태", ""),
+                    "비교 기준": "",
+                    "컬럼명": f"{column_diff.get('전 파일 컬럼', '')} / {column_diff.get('후 파일 컬럼', '')}",
+                    "전 값": "",
+                    "후 값": "",
+                    "위치": "",
+                    "확인할 점": "컬럼명이 바뀐 것인지, 실제로 추가/삭제된 것인지 확인하세요.",
+                }
+            )
+
+        for key, value in result.summary.items():
+            rows.append(
+                {
+                    "구분": "점검 요약",
+                    "상태": key,
+                    "비교 기준": "",
+                    "컬럼명": "",
+                    "전 값": "",
+                    "후 값": value,
+                    "위치": "",
+                    "확인할 점": "",
+                }
+            )
+
+        if not rows:
+            rows.append(
+                {
+                    "구분": "확인",
+                    "상태": "차이 없음",
+                    "비교 기준": "",
+                    "컬럼명": "",
+                    "전 값": "",
+                    "후 값": "",
+                    "위치": "",
+                    "확인할 점": "첫 시트를 확인하세요.",
+                }
+            )
+        return pd.DataFrame(rows, columns=columns)
+
+    def _before_row_detail(self, result: WorkbookDiffResult, before_row_number: object) -> str:
+        try:
+            before_index = int(before_row_number) - 2
+        except (TypeError, ValueError):
+            return ""
+        if not 0 <= before_index < len(result.before_frame):
+            return ""
+        row = result.before_frame.loc[before_index]
+        parts = []
+        for column, value in row.items():
+            text = display_value(value)
+            if text:
+                parts.append(f"{column}={text}")
+            if len(parts) >= 12:
+                break
+        return "; ".join(parts)
 
     def _guide_frame(self, result: WorkbookDiffResult) -> pd.DataFrame:
         return pd.DataFrame(

@@ -35,9 +35,8 @@ def test_workbook_diff_writes_comments_on_changed_after_cells(tmp_path):
 
     assert result.summary["changed_cell_count"] == 1
     assert workbook.sheetnames[0] == "후파일_메모"
-    assert sheets["차이목록"].loc[0, "컬럼명"] == "금액"
-    assert "차이행만" in sheets
-    assert sheets["차이행만"].loc[0, "후 파일 행"] == 2
+    assert set(sheets) == {"후파일_메모", "확인사항"}
+    assert sheets["확인사항"].loc[0, "컬럼명"] == "금액"
     assert memo_sheet["C2"].comment is not None
     assert "전 값: 100" in memo_sheet["C2"].comment.text
     assert "후 값: 150" in memo_sheet["C2"].comment.text
@@ -96,11 +95,11 @@ def test_workbook_diff_reports_missing_rows_with_original_values(tmp_path):
 
     assert result.summary["missing_row_count"] == 1
     assert result.summary["added_row_count"] == 1
-    assert "빠진행" in sheets
-    assert sheets["빠진행"].loc[0, "비교 기준"] == "E003"
-    assert sheets["빠진행"].loc[0, "성명"] == "박철수"
-    assert "후 파일에 행 없음" in set(sheets["차이목록"]["상태"])
-    assert "전 파일에 없던 행" in set(sheets["차이목록"]["상태"])
+    review = sheets["확인사항"]
+    missing_row = review[review["비교 기준"] == "E003"].iloc[0]
+    assert "박철수" in missing_row["전 값"]
+    assert "후 파일에 행 없음" in set(review["상태"])
+    assert "전 파일에 없던 행" in set(review["상태"])
 
 
 def test_workbook_diff_auto_maps_renamed_columns_by_data_overlap_and_loose_keys(tmp_path):

@@ -8,12 +8,8 @@ from vhlookup_core.horizontal import HorizontalTableEngine
 from vhlookup_core.models import JobResult
 from vhlookup_core.report import (
     ReportWriter,
-    SHEET_AUTO_EVIDENCE,
-    SHEET_GUIDE,
-    SHEET_ISSUES,
-    SHEET_PRIVACY,
+    SHEET_REVIEW,
     SHEET_RESULT,
-    SHEET_SUMMARY,
 )
 from vhlookup_core.privacy import PrivacyScanner
 
@@ -131,24 +127,34 @@ def test_column_merge_marks_unmatched_attached_cells_with_comment(tmp_path):
     result = ConsolidationEngine().merge_files_by_columns([file_one, file_two])
     ReportWriter().write_xlsx(result, output)
 
-    assert len(result.result_frame) == 3
+    assert len(result.result_frame) == 4
     assert result.result_frame.loc[2, "사번"] == "00125"
     assert pd.isna(result.result_frame.loc[2, "교육명"])
+    assert result.result_frame.loc[3, "사번"] == "00999"
+    assert pd.isna(result.result_frame.loc[3, "성명"])
     issue = next(issue for issue in result.issues if issue.issue_type == "match_failed")
     assert issue.message == "2번째 파일(hr_training_completion.csv)에 해당 기준값이 없습니다."
+    reference_only_issue = next(issue for issue in result.issues if issue.issue_type == "reference_only_unmatched")
+    assert reference_only_issue.message == "2번째 파일(hr_training_completion.csv)에만 있는 기준값입니다. 다른 파일에는 없으니 확인하세요."
 
     workbook = load_workbook(output)
     result_sheet = workbook[SHEET_RESULT]
     headers = [cell.value for cell in result_sheet[1]]
     education_column = headers.index("교육명") + 1
+    name_column = headers.index("성명") + 1
     base_column = headers.index("직급") + 1
     missing_cell = result_sheet.cell(row=4, column=education_column)
+    reference_only_cell = result_sheet.cell(row=5, column=name_column)
     base_cell = result_sheet.cell(row=4, column=base_column)
 
     assert missing_cell.value is None
-    assert missing_cell.fill.fgColor.rgb in {"00FCA5A5", "FCA5A5"}
+    assert missing_cell.fill.fgColor.rgb in {"00FDE68A", "FDE68A"}
     assert missing_cell.comment is not None
     assert "2번째 파일(hr_training_completion.csv)에 해당 기준값이 없습니다." in missing_cell.comment.text
+    assert reference_only_cell.value is None
+    assert reference_only_cell.fill.fgColor.rgb in {"00FDE68A", "FDE68A"}
+    assert reference_only_cell.comment is not None
+    assert "2번째 파일(hr_training_completion.csv)에만 있는 기준값입니다." in reference_only_cell.comment.text
     assert base_cell.comment is None
 
 
@@ -162,9 +168,10 @@ def test_report_writer_extracts_error_rows(tmp_path):
     ReportWriter().write_xlsx(result, output)
     sheets = pd.read_excel(output, sheet_name=None)
 
-    assert "오류행만" in sheets
-    assert not sheets["오류행만"].empty
-    assert {"확인 유형", "안내 문구", "원본 행 번호"} <= set(sheets["오류행만"].columns)
+    assert set(sheets) == {SHEET_RESULT, SHEET_REVIEW}
+    assert not sheets[SHEET_REVIEW].empty
+    assert {"구분", "판단 내용", "확인할 점"} <= set(sheets[SHEET_REVIEW].columns)
+    assert {"필수값 누락", "숫자 오류"} & set(sheets[SHEET_REVIEW]["구분"])
 
 
 def test_report_writer_can_leave_merge_result_unmarked(tmp_path):
@@ -223,12 +230,11 @@ def test_report_writer_creates_expected_sheets(tmp_path):
     ReportWriter().write_xlsx(result, output)
     sheets = pd.read_excel(output, sheet_name=None)
 
-    assert set(sheets) == {SHEET_GUIDE, SHEET_RESULT, SHEET_ISSUES, SHEET_SUMMARY, SHEET_AUTO_EVIDENCE, SHEET_PRIVACY}
+    assert set(sheets) == {SHEET_RESULT, SHEET_REVIEW}
     assert list(sheets)[0] == SHEET_RESULT
     assert sheets[SHEET_RESULT].loc[0, "성명"] == "홍길동"
-    assert sheets[SHEET_GUIDE].loc[0, "먼저 볼 내용"] == "업무 결과"
-    assert sheets[SHEET_AUTO_EVIDENCE].loc[0, "역할"] == "키 컬럼"
-    assert sheets[SHEET_PRIVACY].loc[0, "컬럼명"] == "성명"
+    assert "키 컬럼" in set(sheets[SHEET_REVIEW]["구분"])
+    assert "개인정보 의심" in set(sheets[SHEET_REVIEW]["구분"])
 
 
 def test_privacy_scanner_flags_sensitive_columns_without_values():

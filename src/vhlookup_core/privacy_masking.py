@@ -106,7 +106,6 @@ class PrivacyMaskingEngine:
         output.parent.mkdir(parents=True, exist_ok=True)
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             result.masked_frame.to_excel(writer, sheet_name=SHEET_MASKED, index=False)
-            self._guide_frame(result).to_excel(writer, sheet_name=SHEET_GUIDE, index=False)
             result.records.to_excel(writer, sheet_name=SHEET_RECORDS, index=False)
             self._style_workbook(writer.book)
             self._mark_masked_cells(writer.book, result)

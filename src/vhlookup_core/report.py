@@ -14,6 +14,7 @@ from vhlookup_core.privacy import PrivacyScanner
 
 SHEET_GUIDE = "먼저확인"
 SHEET_RESULT = "결과"
+SHEET_REVIEW = "확인사항"
 SHEET_ISSUES = "확인필요"
 SHEET_ERROR_ROWS = "오류행만"
 SHEET_SUMMARY = "처리요약"
@@ -41,6 +42,8 @@ ISSUE_LABELS = {
     "target_missing_required_key": "대상표 키 누락",
     "missing_in_target": "대상표에 없음",
     "missing_in_reference": "기준표에 없음",
+    "column_present_in_other_file": "다른 파일에만 있는 열",
+    "reference_only_unmatched": "한쪽 파일에만 있는 행",
     "required_column_missing": "필수 컬럼 누락",
     "required_value_missing": "필수값 누락",
     "numeric_value_invalid": "숫자 오류",
@@ -62,6 +65,8 @@ ISSUE_ACTIONS = {
     "target_missing_required_key": "대상표 키 컬럼의 빈 값을 채우세요.",
     "missing_in_target": "제출 누락, 교육 미이수, 지급대상 제외 여부를 확인하세요.",
     "missing_in_reference": "기준명단 누락 또는 잘못 제출된 대상인지 확인하세요.",
+    "column_present_in_other_file": "이 열이 없는 파일의 행은 빈칸이 정상입니다. 필요한 값인지 확인하세요.",
+    "reference_only_unmatched": "한쪽 파일에만 있는 행입니다. 누락인지, 추가 대상인지 확인하세요.",
     "required_column_missing": "제출 양식에 필수 컬럼이 있는지 확인하세요.",
     "required_value_missing": "해당 행의 빈 필수값을 채운 뒤 다시 수합하세요.",
     "numeric_value_invalid": "금액/수량에는 숫자만 남기고 단위나 설명은 비고로 옮기세요.",
@@ -85,6 +90,7 @@ SUMMARY_LABELS = {
     "auto_value_columns": "자동 선택 가져올 컬럼",
     "missing_in_target_rows": "대상표에 없는 건수",
     "missing_in_reference_rows": "기준표에 없는 건수",
+    "reference_only_rows": "한쪽 파일에만 있는 행 수",
 }
 
 
@@ -100,31 +106,105 @@ class ReportWriter:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with pd.ExcelWriter(output_path, engine="openpyxl") as writer:
             result.result_frame.to_excel(writer, sheet_name=SHEET_RESULT, index=False)
-            self._guide_frame(result).to_excel(writer, sheet_name=SHEET_GUIDE, index=False)
-            self._issue_frame(result, include_sensitive_details).to_excel(writer, sheet_name=SHEET_ISSUES, index=False)
-            error_rows = self._error_rows_frame(result)
-            if not error_rows.empty:
-                error_rows.to_excel(writer, sheet_name=SHEET_ERROR_ROWS, index=False)
-            self._summary_frame(result).to_excel(writer, sheet_name=SHEET_SUMMARY, index=False)
-            if result.mapping is not None:
-                mapping_rows = [
-                    {
-                        "원본 컬럼": source,
-                        "표준 컬럼": target,
-                        "신뢰도": result.mapping.confidence_by_target.get(target),
-                    }
-                    for source, target in result.mapping.source_to_target.items()
-                ]
-                pd.DataFrame(mapping_rows).to_excel(writer, sheet_name=SHEET_MAPPING, index=False)
-            if result.mapping_records:
-                pd.DataFrame(result.mapping_records).to_excel(writer, sheet_name=SHEET_AUTO_EVIDENCE, index=False)
             privacy_records = result.privacy_records or PrivacyScanner().scan_frame(result.result_frame)
-            if privacy_records:
-                pd.DataFrame(privacy_records).to_excel(writer, sheet_name=SHEET_PRIVACY, index=False)
+            self._review_frame(result, privacy_records, include_sensitive_details).to_excel(
+                writer, sheet_name=SHEET_REVIEW, index=False
+            )
             self._style_workbook(writer.book)
             if mark_result_cells:
                 self._mark_result_sheet(writer.book, result, privacy_records)
         return output_path
+
+    def _review_frame(
+        self,
+        result: JobResult,
+        privacy_records: list[dict[str, object]],
+        include_sensitive_details: bool,
+    ) -> pd.DataFrame:
+        rows: list[dict[str, object]] = []
+        columns = ["구분", "파일명", "시트명", "기준/컬럼", "판단 내용", "확인할 점"]
+
+        for record in result.mapping_records:
+            basis_parts = [
+                str(record.get(key, "")).strip()
+                for key in ("기준표 컬럼", "대상표 컬럼", "원본 컬럼", "표준 컬럼")
+                if str(record.get(key, "")).strip()
+            ]
+            rows.append(
+                {
+                    "구분": record.get("역할", "자동 매칭"),
+                    "파일명": record.get("파일명", ""),
+                    "시트명": record.get("시트명", ""),
+                    "기준/컬럼": " -> ".join(basis_parts),
+                    "판단 내용": record.get("추천 방식", ""),
+                    "확인할 점": record.get("검토 메모", ""),
+                }
+            )
+
+        if result.mapping is not None:
+            for source, target in result.mapping.source_to_target.items():
+                rows.append(
+                    {
+                        "구분": "컬럼 매칭",
+                        "파일명": "",
+                        "시트명": "",
+                        "기준/컬럼": f"{source} -> {target}",
+                        "판단 내용": "컬럼명 동의어/유사도 기준으로 맞췄습니다.",
+                        "확인할 점": f"신뢰도 {result.mapping.confidence_by_target.get(target, '')}",
+                    }
+                )
+
+        for issue in result.issues:
+            row = {
+                "구분": ISSUE_LABELS.get(issue.issue_type, issue.issue_type),
+                "파일명": issue.file_name or "",
+                "시트명": issue.sheet_name or "",
+                "기준/컬럼": self._issue_column_text(issue) or "",
+                "판단 내용": issue.message,
+                "확인할 점": ISSUE_ACTIONS.get(issue.issue_type, "원본 자료와 매핑 설정을 확인하세요."),
+            }
+            if include_sensitive_details:
+                row["상세"] = json.dumps(issue.details, ensure_ascii=False, sort_keys=True)
+            rows.append(row)
+
+        for record in privacy_records:
+            rows.append(
+                {
+                    "구분": "개인정보 의심",
+                    "파일명": "",
+                    "시트명": "",
+                    "기준/컬럼": record.get("컬럼명", ""),
+                    "판단 내용": f"{record.get('점검 유형', '')} {record.get('감지 건수', '')}건",
+                    "확인할 점": record.get("조치 안내", "공유 전에 필요 여부를 확인하세요."),
+                }
+            )
+
+        for key, value in result.summary.items():
+            rows.append(
+                {
+                    "구분": "처리 요약",
+                    "파일명": "",
+                    "시트명": "",
+                    "기준/컬럼": SUMMARY_LABELS.get(key, key),
+                    "판단 내용": value,
+                    "확인할 점": "",
+                }
+            )
+
+        if not rows:
+            rows.append(
+                {
+                    "구분": "확인",
+                    "파일명": "",
+                    "시트명": "",
+                    "기준/컬럼": "",
+                    "판단 내용": "추가 확인 항목이 없습니다.",
+                    "확인할 점": "첫 번째 결과 시트를 확인하세요.",
+                }
+            )
+        if include_sensitive_details and "상세" not in columns:
+            columns.append("상세")
+        return pd.DataFrame(rows, columns=columns)
 
     def _guide_frame(self, result: JobResult) -> pd.DataFrame:
         issue_frame = self._issue_frame(result, include_sensitive_details=False)
@@ -229,6 +309,17 @@ class ReportWriter:
         return pd.DataFrame(rows)
 
     def _matching_result_indices(self, frame: pd.DataFrame, issue) -> list[int]:
+        result_indices = issue.details.get("result_indices") if isinstance(issue.details, dict) else None
+        if isinstance(result_indices, (list, tuple)):
+            indices: list[int] = []
+            for index in result_indices:
+                try:
+                    value = int(index)
+                except (TypeError, ValueError):
+                    continue
+                if 0 <= value < len(frame):
+                    indices.append(value)
+            return indices
         if issue.row_number is None:
             return []
 
@@ -241,14 +332,14 @@ class ReportWriter:
             mask &= frame["원본 파일명"].astype(str) == str(issue.file_name)
         if issue.sheet_name and "원본 시트명" in frame.columns:
             mask &= frame["원본 시트명"].astype(str) == str(issue.sheet_name)
-        indices = [int(index) for index in frame.index[mask]]
-        if indices:
-            return indices
+        if matched_by_tracking:
+            indices = [int(index) for index in frame.index[mask]]
+            if indices:
+                return indices
 
-        if not matched_by_tracking:
-            index = int(issue.row_number) - 2
-            if 0 <= index < len(frame):
-                return [index]
+        index = int(issue.row_number) - 2
+        if 0 <= index < len(frame):
+            return [index]
         return []
 
     def _summary_frame(self, result: JobResult) -> pd.DataFrame:
@@ -264,7 +355,6 @@ class ReportWriter:
             return
         sheet = workbook[SHEET_RESULT]
         privacy_fill = PatternFill("solid", fgColor="FDE68A")
-        issue_fill = PatternFill("solid", fgColor="FCA5A5")
 
         for record in privacy_records:
             column_index = self._find_column_index(sheet, str(record.get("컬럼명", "")))
@@ -289,6 +379,7 @@ class ReportWriter:
             if indices:
                 for index in indices:
                     excel_row = int(index) + 2
+                    issue_fill = self._fill_for_issue(issue)
                     if columns_to_mark:
                         marked = False
                         for column_name in columns_to_mark:
@@ -310,7 +401,12 @@ class ReportWriter:
             if issue.column_name:
                 column_index = self._find_column_index(sheet, issue.column_name)
                 if column_index is not None:
-                    self._mark_column(sheet, column_index, issue_fill, message, max_cell_comments=10)
+                    self._mark_column(sheet, column_index, self._fill_for_issue(issue), message, max_cell_comments=10)
+
+    def _fill_for_issue(self, issue) -> PatternFill:
+        if issue.severity == "error":
+            return PatternFill("solid", fgColor="FCA5A5")
+        return PatternFill("solid", fgColor="FDE68A")
 
     def _issue_columns_to_mark(self, issue) -> list[str]:
         columns: list[str] = []

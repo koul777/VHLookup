@@ -15,6 +15,7 @@ class MergeEngine:
         key_spec: KeySpec,
         value_columns: list[str] | tuple[str, ...],
         output_suffix: str = "_from_reference",
+        include_unmatched_reference: bool = False,
     ) -> JobResult:
         missing_values = [column for column in value_columns if column not in reference.columns]
         if missing_values:
@@ -73,6 +74,7 @@ class MergeEngine:
 
         result = target_with_key.merge(lookup_frame, on="__vh_key", how="left", sort=False)
         reference_key_set = set(unique_reference["__vh_key"])
+        target_key_set = set(target_with_key["__vh_key"])
         duplicate_reference_key_set = duplicate_reference_keys
 
         for row_index, key in target_with_key["__vh_key"].items():
@@ -121,6 +123,43 @@ class MergeEngine:
                         )
                     )
 
+        if include_unmatched_reference:
+            reference_only_columns = [
+                str(column)
+                for column in target.columns
+                if str(column).strip() and str(column) not in set(target_key_columns)
+            ]
+            reference_only_rows: list[dict[object, object]] = []
+            for row_index, row in unique_reference.iterrows():
+                key = row["__vh_key"]
+                if key == "" or key in target_key_set or key in duplicate_reference_key_set:
+                    continue
+                output_row = {column: pd.NA for column in result.columns}
+                output_row["__vh_key"] = key
+                for reference_key_column, target_key_column in zip(ref_key_columns, target_key_columns):
+                    if target_key_column in output_row:
+                        output_row[target_key_column] = row[reference_key_column]
+                for reference_column, output_column in rename_map.items():
+                    output_row[output_column] = row[reference_column]
+                reference_only_rows.append(output_row)
+                issues.append(
+                    ValidationIssue(
+                        issue_type="reference_only_unmatched",
+                        message="붙일 파일에는 있지만 대상표에 해당 기준값이 없어 행을 추가했습니다.",
+                        row_number=len(result) + len(reference_only_rows) + 1,
+                        details={
+                            "source_row_number": int(row_index) + 2,
+                            "source_key": key,
+                            "result_columns": reference_only_columns,
+                        },
+                    )
+                )
+            if reference_only_rows:
+                result = pd.concat(
+                    [result, pd.DataFrame(reference_only_rows, columns=result.columns)],
+                    ignore_index=True,
+                )
+
         result = result.drop(columns=["__vh_key"])
         summary = {
             "target_rows": len(target),
@@ -128,6 +167,7 @@ class MergeEngine:
             "matched_rows": int(result[list(rename_map.values())].notna().any(axis=1).sum())
             if rename_map
             else 0,
+            "reference_only_rows": sum(1 for issue in issues if issue.issue_type == "reference_only_unmatched"),
             "issue_count": len(issues),
         }
         return JobResult(result_frame=result, issues=issues, summary=summary)

@@ -58,7 +58,7 @@ def test_admin_split_workbook_infers_department_column(tmp_path):
     first_sheet = workbook[workbook.sheetnames[0]]
 
     assert split_result.split_column == "Department"
-    assert {"먼저확인", "전체", "IT", "Sales"} <= set(sheets)
+    assert {"확인사항", "전체", "IT", "Sales"} <= set(sheets)
     assert workbook.sheetnames[0] == "IT"
     assert first_sheet["B1"].comment is None
     assert first_sheet["B2"].comment is None
@@ -74,7 +74,8 @@ def test_clean_file_report_can_be_written(tmp_path):
     ReportWriter().write_xlsx(result, output)
     sheets = pd.read_excel(output, sheet_name=None)
 
-    assert {"먼저확인", "결과", "처리요약", "자동추천근거", "개인정보점검"} <= set(sheets)
+    assert set(sheets) == {"결과", "확인사항"}
+    assert "파일 정리" in set(sheets["확인사항"]["구분"])
 
 
 def test_pivot_summary_builds_cross_tab_and_workbook(tmp_path):
@@ -108,8 +109,9 @@ def test_pivot_summary_builds_cross_tab_and_workbook(tmp_path):
     workbook = load_workbook(output)
 
     assert result.row_column == "부서"
-    assert {"먼저확인", "피벗요약", "상위목록", "기준설명", "원본"} <= set(sheets)
+    assert set(sheets) == {"피벗요약", "확인사항"}
     assert workbook.sheetnames[0] == "피벗요약"
+    assert "상위 목록" in set(sheets["확인사항"]["구분"])
     assert workbook["피벗요약"]["A1"].comment is not None
     with ZipFile(output) as archive:
         drawing_xml = "\n".join(

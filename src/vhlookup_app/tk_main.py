@@ -203,14 +203,9 @@ def generate_demo_reports(output_dir: Path, samples_dir: Path) -> list[Path]:
 
     employee_master = load_table(hr_samples / "hr_employee_master.csv")
     training = load_table(hr_samples / "hr_training_completion.csv")
-    auto_plan = AutoLookupPlanner().infer_lookup_plan(employee_master, training)
-    lookup = MergeEngine().merge_lookup(
-        employee_master,
-        training,
-        auto_plan.key_spec,
-        value_columns=list(auto_plan.value_columns),
+    lookup = ConsolidationEngine().merge_files_by_columns(
+        [hr_samples / "hr_employee_master.csv", hr_samples / "hr_training_completion.csv"]
     )
-    attach_auto_summary(lookup, auto_plan, "직원 교육이수 명단에 부서/직급 붙이기")
     writer.write_xlsx(lookup, output_dir / "03_교육이수_명단대조.xlsx")
 
     reconciliation_plan = AutoLookupPlanner().infer_reconciliation_key_spec(employee_master, training)
@@ -1036,7 +1031,7 @@ class LocalApp:
                         saved_mappings_by_file=manual_row_mappings,
                     )
                     output = self._timestamped_output("파일행합치기_결과")
-                ReportWriter().write_xlsx(result, output, mark_result_cells=False)
+                ReportWriter().write_xlsx(result, output, mark_result_cells=True)
                 return [output]
 
             label = "열 방향 파일 합치기" if selected_mode == "columns" else "행 방향 파일 합치기"

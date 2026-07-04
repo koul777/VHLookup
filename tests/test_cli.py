@@ -30,9 +30,10 @@ def test_cli_consolidate_generates_review_ready_workbook(tmp_path):
     )
 
     sheets = pd.read_excel(output, sheet_name=None)
-    assert set(sheets) >= {"먼저확인", "결과", "확인필요", "처리요약", "자동추천근거", "개인정보점검"}
+    assert set(sheets) == {"결과", "확인사항"}
     assert len(sheets["결과"]) == 4
-    assert {"연락처", "담당자"} <= set(sheets["개인정보점검"]["컬럼명"])
+    privacy_rows = sheets["확인사항"][sheets["확인사항"]["구분"] == "개인정보 의심"]
+    assert {"연락처", "담당자"} <= set(privacy_rows["기준/컬럼"])
 
 
 def test_cli_templates_exports_catalog(tmp_path):
@@ -130,9 +131,9 @@ def test_cli_lookup_auto_matches_without_manual_columns(tmp_path):
     )
 
     sheets = pd.read_excel(output, sheet_name=None)
-    summary = sheets["처리요약"]
-    assert "자동 선택 기준표 키" in set(summary["항목"])
-    assert sheets["자동추천근거"].loc[0, "기준표 컬럼"] == "사번"
+    review = sheets["확인사항"]
+    assert "자동 선택 기준표 키" in set(review["기준/컬럼"])
+    assert review.loc[review["구분"] == "키 컬럼", "기준/컬럼"].iloc[0] == "사번 -> 직원번호"
 
 
 def test_cli_reconcile_and_horizontal_workflows(tmp_path):
@@ -164,7 +165,7 @@ def test_cli_reconcile_and_horizontal_workflows(tmp_path):
         ]
     )
 
-    reconcile = pd.read_excel(reconcile_out, sheet_name="처리요약")
+    reconcile = pd.read_excel(reconcile_out, sheet_name="확인사항")
     horizontal = pd.read_excel(horizontal_out, sheet_name="결과")
-    assert "대상표에 없는 건수" in set(reconcile["항목"])
+    assert "대상표에 없는 건수" in set(reconcile["기준/컬럼"])
     assert set(horizontal.columns) == {"기관명", "항목", "비고", "열 기준", "값"}

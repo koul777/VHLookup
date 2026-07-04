@@ -287,7 +287,7 @@ class AdminWorkbookTools:
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
         groups = list(cleaned.groupby(cleaned[selected_column].map(lambda value: "(빈값)" if is_blank(value) else str(value)), dropna=False))
-        used_sheet_names = {"전체", "먼저확인"}
+        used_sheet_names = {"전체", "확인사항"}
         split_sheet_names: list[str] = []
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             for value, group in groups:
@@ -306,7 +306,7 @@ class AdminWorkbookTools:
                     {"항목": "주의", "내용": "원본 파일은 수정하지 않았습니다."},
                 ]
             )
-            guide.to_excel(writer, sheet_name="먼저확인", index=False)
+            guide.to_excel(writer, sheet_name="확인사항", index=False)
             self._style_workbook(writer.book)
         return SplitWorkbookResult(output, selected_column, len(groups), len(cleaned))
 
@@ -433,12 +433,7 @@ class AdminWorkbookTools:
         output.parent.mkdir(parents=True, exist_ok=True)
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             result.pivot_frame.to_excel(writer, sheet_name="피벗요약", index=False)
-            self._pivot_check_frame(result).to_excel(writer, sheet_name="먼저확인", index=False)
-            result.top_frame.to_excel(writer, sheet_name="상위목록", index=False)
-            result.guide_frame.to_excel(writer, sheet_name="기준설명", index=False)
-            if not result.invalid_rows.empty:
-                result.invalid_rows.to_excel(writer, sheet_name="오류행만", index=False)
-            result.source_frame.to_excel(writer, sheet_name="원본", index=False)
+            self._pivot_review_frame(result).to_excel(writer, sheet_name="확인사항", index=False)
             self._style_workbook(writer.book)
             self._format_pivot_number_cells(writer.book, result)
             self._mark_pivot_summary(writer.book, result)
@@ -451,6 +446,55 @@ class AdminWorkbookTools:
             row_count=int(result.summary["row_count"]),
             invalid_value_count=int(result.summary["invalid_value_count"]),
         )
+
+    def _pivot_review_frame(self, result: PivotSummaryResult) -> pd.DataFrame:
+        rows: list[dict[str, object]] = []
+        columns = ["구분", "기준/컬럼", "내용", "확인할 점"]
+
+        for _, guide_row in result.guide_frame.iterrows():
+            rows.append(
+                {
+                    "구분": "요약 기준",
+                    "기준/컬럼": guide_row.get("항목", ""),
+                    "내용": guide_row.get("내용", ""),
+                    "확인할 점": "",
+                }
+            )
+
+        for _, top_row in result.top_frame.head(20).iterrows():
+            label = top_row.get(result.summary.get("row_column", ""), "")
+            rows.append(
+                {
+                    "구분": "상위 목록",
+                    "기준/컬럼": label,
+                    "내용": "; ".join(f"{column}={value}" for column, value in top_row.items()),
+                    "확인할 점": "상위 항목이 예상과 맞는지 확인하세요.",
+                }
+            )
+
+        for _, invalid_row in result.invalid_rows.head(50).iterrows():
+            rows.append(
+                {
+                    "구분": "숫자 오류",
+                    "기준/컬럼": result.summary.get("value_column", ""),
+                    "내용": "; ".join(f"{column}={value}" for column, value in invalid_row.items()),
+                    "확인할 점": "숫자로 집계해야 하는 값인지 원본을 확인하세요.",
+                }
+            )
+
+        for key, value in result.summary.items():
+            rows.append(
+                {
+                    "구분": "처리 요약",
+                    "기준/컬럼": key,
+                    "내용": value,
+                    "확인할 점": "",
+                }
+            )
+
+        if not rows:
+            rows.append({"구분": "확인", "기준/컬럼": "", "내용": "추가 확인 항목이 없습니다.", "확인할 점": "첫 시트를 확인하세요."})
+        return pd.DataFrame(rows, columns=columns)
 
     def _clean_frame(self, frame: pd.DataFrame) -> pd.DataFrame:
         cleaned = frame.copy()

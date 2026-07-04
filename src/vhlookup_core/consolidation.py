@@ -59,6 +59,8 @@ class ConsolidationEngine:
         issues: list[ValidationIssue] = []
         frames: list[pd.DataFrame] = []
         mapping_records: list[dict[str, object]] = []
+        produced_columns_by_file: dict[str, set[str]] = {}
+        sheet_by_file: dict[str, str] = {}
         workflow_template = get_template(template) if isinstance(template, str) else template
         validation_profile = ValidationProfile.from_template(workflow_template)
         if standard_columns is None and workflow_template is not None and workflow_template.standard_columns:
@@ -109,13 +111,19 @@ class ConsolidationEngine:
                     )
                 renamed = table.rename(columns=mapping.source_to_target)
                 output = pd.DataFrame(index=table.index)
+                produced_columns: set[str] = set()
                 for column in resolved_standard_columns:
-                    output[column] = renamed[column] if column in renamed.columns else pd.NA
+                    if column in renamed.columns:
+                        output[column] = renamed[column]
+                        produced_columns.add(str(column))
+                    else:
+                        output[column] = pd.NA
                 preserved_columns = self._append_unmapped_source_columns(
                     output,
                     table,
                     mapped_sources=set(mapping.source_to_target),
                 )
+                produced_columns.update(str(output_column) for _source_column, output_column in preserved_columns)
                 for source_column, output_column in preserved_columns:
                     mapping_records.append(
                         {
@@ -132,6 +140,8 @@ class ConsolidationEngine:
                 output.insert(0, "원본 행 번호", range(detection.data_start_row_number, detection.data_start_row_number + len(output)))
                 output.insert(0, "원본 시트명", sheet.name)
                 output.insert(0, "원본 파일명", path.name)
+                produced_columns_by_file[path.name] = produced_columns
+                sheet_by_file[path.name] = sheet.name
                 frames.append(output)
                 for warning in detection.warnings + mapping.warnings:
                     issues.append(
@@ -157,6 +167,7 @@ class ConsolidationEngine:
         result = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         if not result.empty:
             issues.extend(self.validation_engine.validate_frame(result, validation_profile))
+            issues.extend(self._one_sided_column_issues(result, produced_columns_by_file, sheet_by_file))
         summary = {
             "workflow": workflow_template.name if workflow_template else "사용자 지정 수합",
             "file_count": len(files),
@@ -279,6 +290,7 @@ class ConsolidationEngine:
                         key_spec,
                         list(value_columns),
                         output_suffix=f"_{path.stem}",
+                        include_unmatched_reference=True,
                     )
                     result = merge_result.result_frame
                     issues.extend(
@@ -320,6 +332,7 @@ class ConsolidationEngine:
                     plan.key_spec,
                     list(plan.value_columns),
                     output_suffix=f"_{path.stem}",
+                    include_unmatched_reference=True,
                 )
                 result = merge_result.result_frame
                 issues.extend(
@@ -388,12 +401,46 @@ class ConsolidationEngine:
             updates = {"file_name": file_name, "sheet_name": sheet_name}
             if issue.issue_type == "match_failed":
                 updates["message"] = f"{file_label}에 해당 기준값이 없습니다."
+            elif issue.issue_type == "reference_only_unmatched":
+                updates["message"] = f"{file_label}에만 있는 기준값입니다. 다른 파일에는 없으니 확인하세요."
             elif issue.issue_type == "format_mismatch":
                 updates["message"] = f"{file_label}의 기준값과 표시 형식이 달라 매칭에 실패했습니다."
             elif issue.issue_type == "reference_duplicate_key_blocked":
                 updates["message"] = f"{file_label}에 같은 기준값이 여러 건 있어 자동 병합하지 않았습니다."
             annotated.append(replace(issue, **updates))
         return annotated
+
+    def _one_sided_column_issues(
+        self,
+        result: pd.DataFrame,
+        produced_columns_by_file: dict[str, set[str]],
+        sheet_by_file: dict[str, str],
+    ) -> list[ValidationIssue]:
+        if result.empty or len(produced_columns_by_file) < 2 or "원본 파일명" not in result.columns:
+            return []
+        all_columns: set[str] = set()
+        for columns in produced_columns_by_file.values():
+            all_columns.update(columns)
+
+        issues: list[ValidationIssue] = []
+        file_series = result["원본 파일명"].astype(str)
+        for file_name, produced_columns in produced_columns_by_file.items():
+            indices = [int(index) for index in result.index[file_series == file_name]]
+            if not indices:
+                continue
+            missing_columns = sorted(column for column in all_columns if column not in produced_columns)
+            for column in missing_columns:
+                issues.append(
+                    ValidationIssue(
+                        issue_type="column_present_in_other_file",
+                        message=f"{column} 열은 다른 파일에만 있어 이 파일의 행은 빈칸입니다.",
+                        severity="warning",
+                        file_name=file_name,
+                        sheet_name=sheet_by_file.get(file_name),
+                        details={"result_columns": [column], "result_indices": indices},
+                    )
+                )
+        return issues
 
     def _append_columns_by_position(
         self,
