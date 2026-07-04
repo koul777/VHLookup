@@ -593,11 +593,34 @@ class LocalApp:
         return inner, canvas
 
     def _confirm_row_merge_preview(self, files: list[Path]) -> dict[str, dict[str, str]] | None:
-        try:
-            tables = [(file, load_table(file, max_rows=PREVIEW_LOAD_ROW_LIMIT)) for file in files]
-        except Exception as exc:
-            messagebox.showerror(APP_TITLE, f"미리보기를 만들 수 없습니다.\n{exc}")
+        preview_load: dict[str, object] = {}
+
+        def job(progress):
+            loaded = []
+            total_files = max(len(files), 1)
+            for file_index, file in enumerate(files, start=1):
+                progress(
+                    5 + int((file_index - 1) / total_files * 85),
+                    f"{file_index}/{len(files)} 파일 미리보기 읽는 중: {file.name}",
+                )
+                loaded.append((file, load_table(file, max_rows=PREVIEW_LOAD_ROW_LIMIT)))
+                progress(
+                    5 + int(file_index / total_files * 85),
+                    f"{file_index}/{len(files)} 파일 미리보기 읽기 완료: {file.name}",
+                )
+            progress(100, "행 합치기 미리보기 준비 완료")
+            return loaded
+
+        self._run_with_progress(
+            "행 합치기 미리보기 준비",
+            job,
+            on_done=lambda tables: preview_load.setdefault("tables", tables),
+            show_success=False,
+            wait=True,
+        )
+        if "tables" not in preview_load:
             return None
+        tables = preview_load["tables"]
 
         base_columns = [str(column) for column in tables[0][1].columns]
         engine = ConsolidationEngine()
@@ -684,14 +707,38 @@ class LocalApp:
         self.root.wait_window(dialog)
         return result
 
-    def _infer_column_merge_settings(self, files: list[Path]) -> tuple[list[tuple[Path, pd.DataFrame]], dict[str, dict[str, object]]]:
-        tables = [(file, load_table(file, max_rows=PREVIEW_LOAD_ROW_LIMIT)) for file in files]
+    def _infer_column_merge_settings(
+        self,
+        files: list[Path],
+        progress_callback=None,
+    ) -> tuple[list[tuple[Path, pd.DataFrame]], dict[str, dict[str, object]]]:
+        if progress_callback is None:
+            progress_callback = lambda _percent, _message: None
+
+        tables = []
+        total_files = max(len(files), 1)
+        for file_index, file in enumerate(files, start=1):
+            progress_callback(
+                5 + int((file_index - 1) / total_files * 55),
+                f"{file_index}/{len(files)} 파일 미리보기 읽는 중: {file.name}",
+            )
+            tables.append((file, load_table(file, max_rows=PREVIEW_LOAD_ROW_LIMIT)))
+            progress_callback(
+                5 + int(file_index / total_files * 55),
+                f"{file_index}/{len(files)} 파일 미리보기 읽기 완료: {file.name}",
+            )
         if len(tables) < 2:
+            progress_callback(100, "열 합치기 미리보기 준비 완료")
             return tables, {}
         base_frame = tables[0][1]
         planner = AutoLookupPlanner()
         settings: dict[str, dict[str, object]] = {}
-        for file, table in tables[1:]:
+        plan_total = max(len(tables) - 1, 1)
+        for plan_index, (file, table) in enumerate(tables[1:], start=1):
+            progress_callback(
+                65 + int((plan_index - 1) / plan_total * 30),
+                f"{plan_index + 1}번째 파일 키와 붙일 컬럼 찾는 중: {file.name}",
+            )
             try:
                 plan = planner.infer_lookup_plan(table, base_frame)
                 settings[str(file.resolve())] = {
@@ -707,14 +754,29 @@ class LocalApp:
                     "source_key_columns": source_columns[:1],
                     "value_columns": source_columns[1:] or source_columns[:1],
                 }
+            progress_callback(
+                65 + int(plan_index / plan_total * 30),
+                f"{plan_index + 1}번째 파일 자동 추천 완료: {file.name}",
+            )
+        progress_callback(100, "열 합치기 미리보기 준비 완료")
         return tables, settings
 
     def _confirm_column_merge_preview(self, files: list[Path]) -> dict[str, dict[str, object]] | None:
-        try:
-            tables, auto_settings = self._infer_column_merge_settings(files)
-        except Exception as exc:
-            messagebox.showerror(APP_TITLE, f"미리보기를 만들 수 없습니다.\n{exc}")
+        preview_load: dict[str, object] = {}
+
+        def job(progress):
+            return self._infer_column_merge_settings(files, progress_callback=progress)
+
+        self._run_with_progress(
+            "열 합치기 미리보기 준비",
+            job,
+            on_done=lambda payload: preview_load.setdefault("payload", payload),
+            show_success=False,
+            wait=True,
+        )
+        if "payload" not in preview_load:
             return None
+        tables, auto_settings = preview_load["payload"]
         if len(tables) < 2:
             messagebox.showwarning(APP_TITLE, "열 합치기는 최소 2개 파일이 필요합니다.")
             return None
@@ -1021,23 +1083,39 @@ class LocalApp:
             state="disabled",
         )
 
-        def effective_merge_mode() -> str:
+        def scaled_progress(progress_callback, start: int, end: int):
+            def emit(percent: int, message: str) -> None:
+                percent = max(0, min(int(percent), 100))
+                progress_callback(start + int(percent / 100 * (end - start)), message)
+
+            return emit
+
+        def effective_merge_mode(progress_callback=None) -> str:
             selected = merge_mode.get()
             if selected != "auto":
                 return selected
             if len(files) < 2:
                 return "rows"
-            return ConsolidationEngine().recommend_merge_mode(files, max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT)
+            return ConsolidationEngine().recommend_merge_mode(
+                files,
+                max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT,
+                progress_callback=progress_callback,
+            )
 
-        def build_preview_frame() -> pd.DataFrame:
+        def build_preview_payload(progress_callback=None) -> tuple[pd.DataFrame, str | None]:
+            if progress_callback is None:
+                progress_callback = lambda _percent, _message: None
             if not files:
-                return pd.DataFrame([{"안내": "파일 올리기를 눌러 합칠 파일을 선택하세요."}])
-            mode = effective_merge_mode()
+                return pd.DataFrame([{"안내": "파일 올리기를 눌러 합칠 파일을 선택하세요."}]), None
+            progress_callback(2, "파일 탑재 미리보기 준비 중")
+            mode = effective_merge_mode(scaled_progress(progress_callback, 5, 35))
+            preview_progress = scaled_progress(progress_callback, 38, 94)
             if mode == "columns":
                 result = ConsolidationEngine().merge_files_by_columns(
                     files,
                     merge_plans_by_file=manual_column_plans,
                     max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT,
+                    progress_callback=preview_progress,
                 )
             else:
                 result = ConsolidationEngine().consolidate_files(
@@ -1045,21 +1123,40 @@ class LocalApp:
                     template=None,
                     saved_mappings_by_file=manual_row_mappings,
                     max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT,
+                    progress_callback=preview_progress,
                 )
+            progress_callback(96, "미리보기 표 정리 중")
             if result.result_frame.empty:
-                return pd.DataFrame([{"안내": "미리볼 데이터가 없습니다.", "확인 필요": len(result.issues)}])
-            return result.result_frame.head(10)
+                return pd.DataFrame([{"안내": "미리볼 데이터가 없습니다.", "확인 필요": len(result.issues)}]), mode
+            return result.result_frame.head(10), mode
 
         def refresh_preview() -> None:
-            try:
-                if files:
-                    mode = effective_merge_mode()
+            if not files:
+                mode_status.set("자동 선택: 파일을 올리면 행/열 합치기를 추천합니다.")
+                self._write_preview_text(
+                    preview_text,
+                    pd.DataFrame([{"안내": "파일 올리기를 눌러 합칠 파일을 선택하세요."}]),
+                    limit=10,
+                )
+                return
+
+            def job(progress):
+                try:
+                    preview, mode = build_preview_payload(progress)
+                    progress(100, "미리보기 표시 준비 완료")
+                    return preview, mode
+                except Exception as exc:
+                    return pd.DataFrame([{"미리보기 오류": str(exc)}]), None
+
+            def apply_preview(payload) -> None:
+                preview, mode = payload
+                if mode:
                     mode_status.set("자동 선택 결과: 열 합치기" if mode == "columns" else "자동 선택 결과: 행 합치기")
                 else:
                     mode_status.set("자동 선택: 파일을 올리면 행/열 합치기를 추천합니다.")
-                self._write_preview_text(preview_text, build_preview_frame(), limit=10)
-            except Exception as exc:
-                self._write_preview_text(preview_text, pd.DataFrame([{"미리보기 오류": str(exc)}]), limit=10)
+                self._write_preview_text(preview_text, preview, limit=10)
+
+            self._run_with_progress("파일 탑재 미리보기", job, on_done=apply_preview, show_success=False)
 
         merge_mode.trace_add("write", lambda *_args: refresh_preview())
 
@@ -1774,7 +1871,15 @@ class LocalApp:
             self.log_insert(traceback.format_exc())
             messagebox.showerror(APP_TITLE, str(exc))
 
-    def _run_with_progress(self, label: str, job, open_path: Path | None = None) -> None:
+    def _run_with_progress(
+        self,
+        label: str,
+        job,
+        open_path: Path | None = None,
+        on_done=None,
+        show_success: bool = True,
+        wait: bool = False,
+    ) -> None:
         dialog = Toplevel(self.root)
         dialog.title(f"{label} 진행률")
         dialog.geometry("460x170")
@@ -1816,9 +1921,21 @@ class LocalApp:
                 pass
             dialog.destroy()
 
-        def handle_done(outputs) -> None:
+        def handle_done(result) -> None:
             finished["value"] = True
-            outputs = outputs or []
+            if on_done is not None:
+                close_dialog()
+                try:
+                    on_done(result)
+                    self.status.set(f"{label} 완료")
+                except Exception as exc:
+                    self.status.set(f"{label} 실패")
+                    self.log_insert(f"[실패] {label}: {exc}")
+                    self.log_insert(traceback.format_exc())
+                    messagebox.showerror(APP_TITLE, str(exc))
+                return
+
+            outputs = result or []
             self.log_insert(f"[완료] {label}")
             for output in outputs:
                 self.log_insert(f"  - {output}")
@@ -1828,7 +1945,8 @@ class LocalApp:
             close_dialog()
             if open_path:
                 self.open_folder(open_path)
-            messagebox.showinfo(APP_TITLE, f"{label}이 완료되었습니다.")
+            if show_success:
+                messagebox.showinfo(APP_TITLE, f"{label}이 완료되었습니다.")
 
         def handle_error(exc, formatted_traceback: str) -> None:
             finished["value"] = True
@@ -1865,6 +1983,12 @@ class LocalApp:
         self.status.set(f"{label} 실행 중...")
         threading.Thread(target=worker, daemon=True).start()
         poll_events()
+        if wait:
+            try:
+                if dialog.winfo_exists():
+                    self.root.wait_window(dialog)
+            except Exception:
+                pass
 
     def log_insert(self, text: str) -> None:
         self.log.insert(END, text + "\n")

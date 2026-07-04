@@ -43,36 +43,61 @@ class ConsolidationEngine:
         files: list[str | Path],
         scan_rows: int | str = 30,
         max_rows_per_file: int | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> Literal["rows", "columns"]:
         loaded: list[pd.DataFrame] = []
-        for file in files:
+        total_files = max(len(files), 1)
+        for file_index, file in enumerate(files, start=1):
             try:
-                source = self.loader.load(Path(file), max_rows=max_rows_per_file)
+                path = Path(file)
+                self._emit_progress(
+                    progress_callback,
+                    5 + int((file_index - 1) / total_files * 55),
+                    f"{file_index}/{len(files)} 파일 구조 확인 중: {path.name}",
+                )
+                source = self.loader.load(path, max_rows=max_rows_per_file)
                 sheet = self.sheet_detector.select(source)
                 detection = self.header_detector.detect(sheet, scan_rows=scan_rows)
                 loaded.append(self.header_detector.apply(sheet, detection))
+                self._emit_progress(
+                    progress_callback,
+                    5 + int(file_index / total_files * 55),
+                    f"{file_index}/{len(files)} 파일 구조 확인 완료: {path.name}",
+                )
             except Exception:
+                self._emit_progress(progress_callback, 100, "합치기 방향을 행 합치기로 선택했습니다.")
                 return "rows"
         if len(loaded) < 2:
+            self._emit_progress(progress_callback, 100, "합치기 방향을 행 합치기로 선택했습니다.")
             return "rows"
 
         base = loaded[0]
         planner = AutoLookupPlanner(mapper=self.mapper)
         column_like_count = 0
+        self._emit_progress(progress_callback, 65, "행/열 합치기 방향 판단 중")
         for table in loaded[1:]:
             schema_mapping = self.mapper.map_columns(list(table.columns), list(base.columns), threshold=0.70)
             schema_ratio = len(schema_mapping.source_to_target) / max(len(table.columns), len(base.columns), 1)
             if schema_ratio >= 0.70:
+                self._emit_progress(progress_callback, 100, "합치기 방향을 행 합치기로 선택했습니다.")
                 return "rows"
             try:
                 plan = planner.infer_lookup_plan(table, base)
             except Exception:
+                self._emit_progress(progress_callback, 100, "합치기 방향을 행 합치기로 선택했습니다.")
                 return "rows"
             if plan.confidence < 0.55 or not plan.value_columns:
+                self._emit_progress(progress_callback, 100, "합치기 방향을 행 합치기로 선택했습니다.")
                 return "rows"
             column_like_count += 1
 
-        return "columns" if column_like_count == len(loaded) - 1 else "rows"
+        mode = "columns" if column_like_count == len(loaded) - 1 else "rows"
+        self._emit_progress(
+            progress_callback,
+            100,
+            "합치기 방향을 열 합치기로 선택했습니다." if mode == "columns" else "합치기 방향을 행 합치기로 선택했습니다.",
+        )
+        return mode
 
     def consolidate_folder(
         self,
