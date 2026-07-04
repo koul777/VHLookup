@@ -11,7 +11,8 @@ from vhlookup_core.inspection_report import InspectionReportWriter
 SAMPLES = Path("samples/public_admin")
 MERGE_SAMPLES = SAMPLES / "03_merge_files"
 HR_SAMPLES = MERGE_SAMPLES / "column_merge_hr_training"
-EXTRA_SAMPLES = SAMPLES / "90_extra_cli_samples"
+SUBMISSION_SAMPLES = SAMPLES / "06_submission_reconciliation"
+HORIZONTAL_SAMPLES = SAMPLES / "07_horizontal_table"
 
 
 def test_cli_consolidate_generates_review_ready_workbook(tmp_path):
@@ -144,9 +145,9 @@ def test_cli_reconcile_and_horizontal_workflows(tmp_path):
         [
             "reconcile",
             "--reference",
-            str(EXTRA_SAMPLES / "submission_reconciliation" / "expected_submitters.csv"),
+            str(SUBMISSION_SAMPLES / "expected_submitters.csv"),
             "--target",
-            str(EXTRA_SAMPLES / "submission_reconciliation" / "received_submitters.csv"),
+            str(SUBMISSION_SAMPLES / "received_submitters.csv"),
             "--key",
             "기관코드",
             "--target-key",
@@ -159,7 +160,7 @@ def test_cli_reconcile_and_horizontal_workflows(tmp_path):
         [
             "horizontal",
             "--file",
-            str(EXTRA_SAMPLES / "horizontal_table" / "monthly_budget_wide.csv"),
+            str(HORIZONTAL_SAMPLES / "monthly_budget_wide.csv"),
             "--out",
             str(horizontal_out),
         ]

@@ -18,5 +18,5 @@ build/
 *.log
 *.xlsx
 !tests/**/*.xlsx
-!samples/public_admin/90_extra_cli_samples/large_column_merge_10k/
-!samples/public_admin/90_extra_cli_samples/large_column_merge_10k/*.xlsx
+!samples/public_admin/03_merge_files/large_column_merge_10k/
+!samples/public_admin/03_merge_files/large_column_merge_10k/*.xlsx

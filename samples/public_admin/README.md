@@ -6,7 +6,7 @@ CSV 파일은 Windows Excel에서 더블클릭으로 열어도 한글이 깨지�
 
 ## 폴더 구조
 
-실행 화면의 1~5번 기능 순서에 맞춰 샘플 폴더를 나눴습니다.
+실행 화면의 주요 기능과 추가 업무 항목 순서에 맞춰 샘플 폴더를 나눴습니다.
 
 ```text
 samples/public_admin
@@ -17,11 +17,13 @@ samples/public_admin
 │  ├─ row_merge_messy_headers
 │  ├─ row_merge_submission_errors
 │  ├─ column_merge_hr_training
-│  └─ column_merge_allowance_budget
+│  ├─ column_merge_allowance_budget
+│  └─ large_column_merge_10k
 ├─ 04_before_after_validation
+│  └─ large_before_after_diagonal_10k
 ├─ 05_pivot_summary
-└─ 90_extra_cli_samples
-   └─ large_column_merge_10k
+├─ 06_submission_reconciliation
+└─ 07_horizontal_table
 ```
 
 ## 1. 개인정보 마스킹
@@ -59,6 +61,7 @@ samples/public_admin
 열 합치기 샘플:
 - `03_merge_files/column_merge_hr_training`
 - `03_merge_files/column_merge_allowance_budget`
+- `03_merge_files/large_column_merge_10k`
 
 확인할 수 있는 흐름:
 - 제목/안내문이 있는 파일의 헤더 자동 탐지
@@ -73,8 +76,8 @@ samples/public_admin
 - 대용량 실행 중 진행률 창에 파일 읽기, 키 찾기, 결과 저장 단계 표시
 
 대용량 성능 확인 샘플:
-- `90_extra_cli_samples/large_column_merge_10k/large_employee_master_10k.xlsx`
-- `90_extra_cli_samples/large_column_merge_10k/large_training_results_10k.xlsx`
+- `03_merge_files/large_column_merge_10k/large_employee_master_10k.xlsx`
+- `03_merge_files/large_column_merge_10k/large_training_results_10k.xlsx`
 
 두 파일은 각각 10,000행 x 71열이며, 열 합치기 결과는 10,000행 x 141열입니다. 실제 개인정보가 아닌 합성 식별자와 테스트 값만 들어 있습니다.
 
@@ -89,6 +92,12 @@ samples/public_admin
 - 결과 엑셀의 `후파일_메모` 시트에서 변경 셀 메모 확인
 - 새로 생긴 행은 파란색 전체 행, 사라진 행은 빨간색 전체 행으로 표시
 - 행 추가/누락과 컬럼 변경은 `확인사항` 시트에서 확인
+
+대용량 대각선 변경 샘플:
+- `04_before_after_validation/large_before_after_diagonal_10k/before_10k_50cols.csv`
+- `04_before_after_validation/large_before_after_diagonal_10k/after_diagonal_changes_10k_50cols.csv`
+
+두 파일은 각각 10,000행 x 50열입니다. `검증ID` 키는 양쪽 모두 같고, 후 파일의 `항목01`~`항목49` 대각선 49개 셀만 다른 글자로 바뀌어 있습니다.
 
 ## 5. 피벗 요약표 만들기
 
@@ -106,10 +115,18 @@ samples/public_admin
 - `피벗요약` 시트에 요약표 생성
 - 기준 설명과 확인할 점은 `확인사항` 시트에 표시
 
-## 추가 CLI 샘플
+## 6. 제출 대상 누락 확인
 
-첫 화면 1~5번 메뉴 밖의 추가 샘플은 `90_extra_cli_samples`에 따로 둡니다.
+`06_submission_reconciliation/expected_submitters.csv`와 `06_submission_reconciliation/received_submitters.csv`를 사용합니다.
 
-- `90_extra_cli_samples/submission_reconciliation`: 제출 대상자 누락 확인
-- `90_extra_cli_samples/horizontal_table`: 월별 가로표 세로 변환
-- `90_extra_cli_samples/large_column_merge_10k`: 10,000행 x 2개 열 합치기 성능 확인
+확인할 수 있는 흐름:
+- 제출 대상인데 제출하지 않은 기관
+- 대상 명단에 없는데 제출한 기관
+
+## 7. 월별 가로표 세로 변환
+
+`07_horizontal_table/monthly_budget_wide.csv`를 사용합니다.
+
+확인할 수 있는 흐름:
+- `1월`, `2월`, `3월` 컬럼 자동 감지
+- 월별 가로표를 `기관명`, `항목`, `열 기준`, `값` 형태로 변환

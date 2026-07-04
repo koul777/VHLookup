@@ -191,7 +191,6 @@ def generate_demo_reports(output_dir: Path, samples_dir: Path) -> list[Path]:
     write_demo_tour(output_dir)
     merge_samples = samples_dir / "03_merge_files"
     hr_samples = merge_samples / "column_merge_hr_training"
-    extra_samples = samples_dir / "90_extra_cli_samples"
 
     consolidated = ConsolidationEngine().consolidate_folder(
         merge_samples / "row_merge_school_submissions",
@@ -251,7 +250,7 @@ def generate_demo_reports(output_dir: Path, samples_dir: Path) -> list[Path]:
     attach_auto_summary(allowance, allowance_plan, allowance_template.name)
     writer.write_xlsx(allowance, output_dir / "05_수당예산_대조결과.xlsx")
 
-    submitter_samples = extra_samples / "submission_reconciliation"
+    submitter_samples = samples_dir / "06_submission_reconciliation"
     expected = load_table(submitter_samples / "expected_submitters.csv")
     received = load_table(submitter_samples / "received_submitters.csv")
     submitter_plan = AutoLookupPlanner().infer_reconciliation_key_spec(
@@ -281,7 +280,7 @@ def generate_demo_reports(output_dir: Path, samples_dir: Path) -> list[Path]:
         include_privacy_scan=False,
     )
 
-    monthly = load_table(extra_samples / "horizontal_table" / "monthly_budget_wide.csv")
+    monthly = load_table(samples_dir / "07_horizontal_table" / "monthly_budget_wide.csv")
     converted = HorizontalTableEngine().wide_to_long(monthly, id_columns=["기관명", "항목"])
     horizontal = JobResult(
         result_frame=converted,

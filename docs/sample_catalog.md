@@ -9,7 +9,8 @@
 - `03_merge_files`: 3번 행/열 합치기
 - `04_before_after_validation`: 4번 전/후 파일 검증
 - `05_pivot_summary`: 5번 피벗 요약표 만들기
-- `90_extra_cli_samples`: 첫 화면 밖의 추가 CLI 샘플
+- `06_submission_reconciliation`: 제출 대상 누락 확인
+- `07_horizontal_table`: 월별 가로표 세로 변환
 
 전체 데모 실행:
 
@@ -129,8 +130,8 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/90_extra_cli_samples/submission_reconciliation/expected_submitters.csv`
-- `samples/public_admin/90_extra_cli_samples/submission_reconciliation/received_submitters.csv`
+- `samples/public_admin/06_submission_reconciliation/expected_submitters.csv`
+- `samples/public_admin/06_submission_reconciliation/received_submitters.csv`
 
 결과:
 
@@ -161,7 +162,7 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 
 입력:
 
-- `samples/public_admin/90_extra_cli_samples/horizontal_table/monthly_budget_wide.csv`
+- `samples/public_admin/07_horizontal_table/monthly_budget_wide.csv`
 
 결과:
 
@@ -186,7 +187,21 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 - 결과 엑셀의 `후파일_메모` 시트에서 변경된 셀의 메모를 확인합니다.
 - 행 추가/누락과 컬럼 변경은 `확인사항` 시트에서 확인합니다.
 
-## 10. 피벗 요약표 만들기
+## 10. 대용량 전/후 파일 대각선 변경 검증
+
+입력:
+
+- `samples/public_admin/04_before_after_validation/large_before_after_diagonal_10k/before_10k_50cols.csv`
+- `samples/public_admin/04_before_after_validation/large_before_after_diagonal_10k/after_diagonal_changes_10k_50cols.csv`
+
+확인 포인트:
+
+- 각 파일은 10,000행 x 50열입니다.
+- `검증ID` 키는 양쪽 모두 같습니다.
+- 후 파일의 `항목01`~`항목49` 대각선 49개 셀만 다른 글자로 바뀌어 있습니다.
+- 변경 셀이 노란색과 메모로 표시되는지 확인합니다.
+
+## 11. 피벗 요약표 만들기
 
 입력:
 
@@ -205,12 +220,12 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 - 기준 설명과 상위 항목은 `확인사항` 시트에서 확인합니다.
 - `건수` 집계를 선택하면 값 열 없이 행 개수를 요약할 수 있습니다.
 
-## 11. 대용량 열 합치기 성능 확인
+## 12. 대용량 열 합치기 성능 확인
 
 입력:
 
-- `samples/public_admin/90_extra_cli_samples/large_column_merge_10k/large_employee_master_10k.xlsx`
-- `samples/public_admin/90_extra_cli_samples/large_column_merge_10k/large_training_results_10k.xlsx`
+- `samples/public_admin/03_merge_files/large_column_merge_10k/large_employee_master_10k.xlsx`
+- `samples/public_admin/03_merge_files/large_column_merge_10k/large_training_results_10k.xlsx`
 
 추천 선택:
 

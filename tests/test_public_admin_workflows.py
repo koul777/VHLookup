@@ -14,7 +14,7 @@ SAMPLES = Path("samples/public_admin")
 MERGE_SAMPLES = SAMPLES / "03_merge_files"
 HR_SAMPLES = MERGE_SAMPLES / "column_merge_hr_training"
 ALLOWANCE_SAMPLES = MERGE_SAMPLES / "column_merge_allowance_budget"
-EXTRA_SAMPLES = SAMPLES / "90_extra_cli_samples"
+SUBMISSION_SAMPLES = SAMPLES / "06_submission_reconciliation"
 
 
 def _load_table(path: Path):
@@ -209,8 +209,8 @@ def test_merge_mode_recommendation_distinguishes_row_and_column_samples():
 
 
 def test_submission_reconciliation_sample_finds_missing_and_unknown_submitters():
-    expected = _load_table(EXTRA_SAMPLES / "submission_reconciliation" / "expected_submitters.csv")
-    received = _load_table(EXTRA_SAMPLES / "submission_reconciliation" / "received_submitters.csv")
+    expected = _load_table(SUBMISSION_SAMPLES / "expected_submitters.csv")
+    received = _load_table(SUBMISSION_SAMPLES / "received_submitters.csv")
 
     plan = AutoLookupPlanner().infer_reconciliation_key_spec(
         expected,

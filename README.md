@@ -1,11 +1,11 @@
-# VHLookup Local V1.1
+# VHLookup Local V1.2
 
 공공기관, 교육청, 학교, HR, 총무, 예산 담당자가 반복하는 엑셀 수합, 대조, 검증, 요약 업무를 로컬 PC에서 처리하는 Windows용 업무 자동화 도구입니다.
 
 비개발자 사용자는 Python이나 개발 환경을 몰라도 됩니다. 아래 Windows 실행파일을 내려받아 더블클릭해서 사용합니다.
 
-- [VHLookup Local V1.1 Windows 실행파일 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_pivot_v1.1.exe)
-- 직접 다운로드가 안 되면 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 `VHLookupLocal_pivot_v1.1.exe`를 내려받습니다.
+- [VHLookup Local V1.2 Windows 실행파일 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_pivot_v1.2.exe)
+- 직접 다운로드가 안 되면 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 `VHLookupLocal_pivot_v1.2.exe`를 내려받습니다.
 
 GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을 포함하지 않습니다. exe 파일은 GitHub Release 첨부파일로 배포합니다.
 
@@ -15,17 +15,17 @@ Windows 또는 Microsoft Edge에서 `일반적으로 다운로드되지 않음`,
 
 - 공유하거나 안내할 때, Microsoft 피드백이나 오탐 신고를 할 때는 긴 `release-assets.githubusercontent.com/...` 주소를 사용하지 않습니다. 이 주소는 GitHub가 다운로드 순간에 발급하는 임시 주소라 시간이 지나면 만료됩니다.
 - 공식 다운로드 주소는 위의 `최신 Windows 실행파일 다운로드` 또는 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)입니다.
-- 내려받은 파일명이 `VHLookupLocal_pivot_v1.1.exe`인지 확인합니다.
+- 내려받은 파일명이 `VHLookupLocal_pivot_v1.2.exe`인지 확인합니다.
 - 파일을 실행하기 전에 PowerShell에서 SHA256을 확인할 수 있습니다.
 
 ```powershell
-Get-FileHash .\VHLookupLocal_pivot_v1.1.exe -Algorithm SHA256
+Get-FileHash .\VHLookupLocal_pivot_v1.2.exe -Algorithm SHA256
 ```
 
 현재 Release 기준 SHA256은 아래와 같습니다.
 
 ```text
-6CA8A5F916256C002C2F44CEFD55E16E2A5AAA36CF5BC7BAECCBF11E3E0609F1
+377AD7A8E86487453722341A28F5D1E5BB4AACC4CC2EB338C2F3AB88F134B7AB
 ```
 
 공식 Release에서 받은 파일이고 SHA256이 일치하면 Edge 다운로드 목록에서 `유지` 또는 `그래도 유지`를 선택할 수 있습니다. 실행 시 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다.
@@ -63,7 +63,7 @@ Edge에서 다운로드가 막히는 경우 아래 화면처럼 진행합니다.
 소스에서 직접 실행 파일을 만들려면 `build_exe.bat`을 실행합니다. 빌드가 끝나면 아래 위치에 exe가 생성됩니다.
 
 ```text
-dist\VHLookupLocal_pivot_v1.1.exe
+dist\VHLookupLocal_pivot_v1.2.exe
 ```
 
 ## 핵심 원칙
@@ -167,7 +167,7 @@ dist\VHLookupLocal_pivot_v1.1.exe
 
 ## 사용 순서
 
-1. 전달받은 `VHLookupLocal_pivot_v1.1.exe`를 더블클릭합니다. 직접 빌드한 경우에는 `dist\VHLookupLocal_pivot_v1.1.exe`를 실행합니다.
+1. 전달받은 `VHLookupLocal_pivot_v1.2.exe`를 더블클릭합니다. 직접 빌드한 경우에는 `dist\VHLookupLocal_pivot_v1.2.exe`를 실행합니다.
 2. 실행할 작업 버튼을 선택합니다.
 3. 파일을 올립니다.
 4. 미리보기에서 예상 결과를 확인합니다.
@@ -198,11 +198,13 @@ samples\public_admin
 │  ├─ row_merge_messy_headers
 │  ├─ row_merge_submission_errors
 │  ├─ column_merge_hr_training
-│  └─ column_merge_allowance_budget
+│  ├─ column_merge_allowance_budget
+│  └─ large_column_merge_10k
 ├─ 04_before_after_validation
+│  └─ large_before_after_diagonal_10k
 ├─ 05_pivot_summary
-└─ 90_extra_cli_samples
-   └─ large_column_merge_10k
+├─ 06_submission_reconciliation
+└─ 07_horizontal_table
 ```
 
 ### 메뉴별 샘플
@@ -267,8 +269,8 @@ samples\public_admin
 
 - 누를 기능: `3. 엑셀/CSV 파일 여러 개 합치기`
 - 선택할 파일:
-  - `samples\public_admin\90_extra_cli_samples\large_column_merge_10k\large_employee_master_10k.xlsx`
-  - `samples\public_admin\90_extra_cli_samples\large_column_merge_10k\large_training_results_10k.xlsx`
+  - `samples\public_admin\03_merge_files\large_column_merge_10k\large_employee_master_10k.xlsx`
+  - `samples\public_admin\03_merge_files\large_column_merge_10k\large_training_results_10k.xlsx`
 - 화면 선택값: 합치기 방향 `자동 선택` 또는 `열 합치기`
 - 예상 규모: 입력 10,000행 x 71열 파일 2개, 결과 10,000행 x 141열
 - 확인 포인트: `사번`과 `직원번호`를 자동 키로 잡고, 파일 올리기/미리보기/실행 중 진행률 창에 파일 읽기/키 찾기/결과 저장 단계가 표시되는지 확인
@@ -287,6 +289,15 @@ samples\public_admin
   - `E004`: 후 파일에 새로 생긴 행이므로 파란색 전체 행으로 표시
   - `E003`: 후 파일에서 사라진 행이므로 맨 아래에 추가되고 빨간색 전체 행으로 표시
 
+**대용량 전/후 파일 대각선 변경 검증**
+
+- 누를 기능: `4. 전/후 파일 검증`
+- 선택할 파일:
+  - 수정 전: `samples\public_admin\04_before_after_validation\large_before_after_diagonal_10k\before_10k_50cols.csv`
+  - 수정 후: `samples\public_admin\04_before_after_validation\large_before_after_diagonal_10k\after_diagonal_changes_10k_50cols.csv`
+- 예상 규모: 각 파일 10,000행 x 50열
+- 확인 포인트: `검증ID` 키는 그대로 두고, 후 파일의 `항목01`~`항목49` 대각선 49개 셀만 다른 글자로 변경되어 노란색과 메모로 표시되는지 확인
+
 **부서/월별 예산 피벗**
 
 - 누를 기능: `5. 피벗 요약표 만들기`
@@ -303,7 +314,7 @@ samples\public_admin
 - 결과에서 먼저 볼 시트: `피벗요약`
 - 그 다음 참고 시트: `확인사항`
 
-월별 가로표 변환, 제출대상 누락 확인, 대용량 성능 확인처럼 기본 흐름 밖의 샘플은 `samples\public_admin\90_extra_cli_samples`에 따로 뒀습니다.
+제출대상 누락 확인과 월별 가로표 변환 샘플도 `06_submission_reconciliation`, `07_horizontal_table`처럼 항목별 폴더에 배치했습니다.
 
 샘플 종류와 확인 포인트는 [docs/sample_catalog.md](docs/sample_catalog.md)에 더 자세히 정리되어 있습니다.
 
@@ -343,7 +354,7 @@ build_exe.bat
 빌드가 끝나면 아래 파일이 생성됩니다.
 
 ```text
-dist\VHLookupLocal_pivot_v1.1.exe
+dist\VHLookupLocal_pivot_v1.2.exe
 ```
 
 ## 테스트
@@ -377,7 +388,7 @@ python -m vhlookup_cli.main reconcile --reference expected.xlsx --target receive
 python -m vhlookup_cli.main horizontal --file monthly.xlsx --out monthly_long.xlsx
 ```
 
-비개발자용 기본 사용은 CLI가 아니라 배포용 `VHLookupLocal_pivot_v1.1.exe` 실행입니다.
+비개발자용 기본 사용은 CLI가 아니라 배포용 `VHLookupLocal_pivot_v1.2.exe` 실행입니다.
 
 ## 관련 문서
 
