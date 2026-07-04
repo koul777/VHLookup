@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,10 @@ from vhlookup_core.sheet import SheetDetector
 SHEET_MASKED = "마스킹결과"
 SHEET_GUIDE = "먼저확인"
 SHEET_RECORDS = "마스킹내역"
+WIDTH_SCAN_ROW_LIMIT = 200
+LARGE_MASKED_CELL_THRESHOLD = 200_000
+LARGE_MASKED_MARK_CELL_LIMIT = 20_000
+ProgressCallback = Callable[[int, str], None]
 
 NAME_HEADERS = ("성명", "이름", "직원명", "담당자", "담당자명", "대상자명", "신청자명", "예금주")
 PHONE_HEADERS = ("연락처", "전화번호", "휴대폰", "핸드폰", "내선번호", "phone", "mobile")
@@ -71,17 +76,29 @@ class PrivacyMaskingEngine:
         self.header_detector = header_detector or HeaderDetector()
         self.sheet_detector = sheet_detector or SheetDetector(self.header_detector)
 
-    def mask_file(self, path: str | Path) -> PrivacyMaskingResult:
+    def mask_file(self, path: str | Path, progress_callback: ProgressCallback | None = None) -> PrivacyMaskingResult:
+        self._emit_progress(progress_callback, 8, "원본 파일 읽는 중")
         table, metadata = self._load_table(path)
-        result = self.mask_frame(table)
+        self._emit_progress(progress_callback, 18, "개인정보 패턴 찾는 중")
+        result = self.mask_frame(table, progress_callback=progress_callback)
         result.summary.update(metadata)
         return result
 
-    def mask_frame(self, frame: pd.DataFrame) -> PrivacyMaskingResult:
+    def mask_frame(
+        self,
+        frame: pd.DataFrame,
+        progress_callback: ProgressCallback | None = None,
+    ) -> PrivacyMaskingResult:
         masked = frame.copy()
         records: list[dict[str, Any]] = []
 
+        column_count = max(len(masked.columns), 1)
         for column_index, column in enumerate(masked.columns):
+            self._emit_progress(
+                progress_callback,
+                18 + int(column_index / column_count * 58),
+                f"개인정보 검사 중: {column}",
+            )
             column_types = self._types_for_column(str(column))
             for row_index, value in masked[column].items():
                 masked_value, applied_types = self._mask_value(value, column_types)
@@ -99,6 +116,11 @@ class PrivacyMaskingEngine:
                             "_column_index": int(column_index),
                         }
                     )
+            self._emit_progress(
+                progress_callback,
+                18 + int((column_index + 1) / column_count * 58),
+                f"마스킹 완료: {column}",
+            )
 
         record_frame = pd.DataFrame(records)
         public_records = (
@@ -119,16 +141,28 @@ class PrivacyMaskingEngine:
         object.__setattr__(result, "_internal_records", record_frame)
         return result
 
-    def write_xlsx(self, path: str | Path, output_path: str | Path) -> Path:
-        result = self.mask_file(path)
+    def write_xlsx(
+        self,
+        path: str | Path,
+        output_path: str | Path,
+        progress_callback: ProgressCallback | None = None,
+    ) -> Path:
+        result = self.mask_file(path, progress_callback=progress_callback)
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
+        self._emit_progress(progress_callback, 82, "마스킹 결과 엑셀 저장 중")
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             result.masked_frame.to_excel(writer, sheet_name=SHEET_MASKED, index=False)
             result.records.to_excel(writer, sheet_name=SHEET_RECORDS, index=False)
             self._style_workbook(writer.book)
             self._mark_masked_cells(writer.book, result)
+        self._emit_progress(progress_callback, 100, "완료")
         return output
+
+    def _emit_progress(self, callback: ProgressCallback | None, percent: int, message: str) -> None:
+        if callback is None:
+            return
+        callback(max(0, min(int(percent), 100)), message)
 
     def _load_table(self, path: str | Path) -> tuple[pd.DataFrame, dict[str, Any]]:
         source = self.loader.load(path)
@@ -284,10 +318,16 @@ class PrivacyMaskingEngine:
         sheet = workbook[SHEET_MASKED]
         fill = PatternFill("solid", fgColor="FDE68A")
         grouped = records.groupby(["_row_index", "_column_index"])["마스킹 유형"].apply(lambda values: ", ".join(sorted(set(values))))
+        cell_count = len(result.masked_frame) * max(len(result.masked_frame.columns), 1)
+        remaining_marks = LARGE_MASKED_MARK_CELL_LIMIT if cell_count > LARGE_MASKED_CELL_THRESHOLD else None
         for (row_index, column_index), masking_types in grouped.items():
+            if remaining_marks == 0:
+                return
             cell = sheet.cell(row=int(row_index) + 2, column=int(column_index) + 1)
             cell.fill = fill
             cell.comment = make_comment(f"개인정보 마스킹 적용\n유형: {masking_types}\n원본 값은 결과 파일에 저장하지 않았습니다.")
+            if remaining_marks is not None:
+                remaining_marks -= 1
 
     def _style_workbook(self, workbook) -> None:
         header_fill = PatternFill("solid", fgColor="1F6F5F")
@@ -300,13 +340,12 @@ class PrivacyMaskingEngine:
                 cell.fill = header_fill
                 cell.font = header_font
                 cell.alignment = Alignment(horizontal="center", vertical="center")
-            for column_cells in sheet.columns:
+            for column_cells in sheet.iter_cols(max_row=min(sheet.max_row, WIDTH_SCAN_ROW_LIMIT + 1)):
                 max_length = 0
                 column_letter = get_column_letter(column_cells[0].column)
                 for cell in column_cells:
                     value = "" if cell.value is None else str(cell.value)
                     max_length = max(max_length, min(len(value), 42))
-                    cell.alignment = Alignment(vertical="center", wrap_text=True)
                 sheet.column_dimensions[column_letter].width = max(10, min(max_length + 2, 44))
 
     def _matches(self, normalized: str, headers: tuple[str, ...]) -> bool:

@@ -9,6 +9,9 @@ from openpyxl.utils import get_column_letter
 from vhlookup_core.templates import WorkflowTemplate, all_templates
 
 
+WIDTH_SCAN_ROW_LIMIT = 200
+
+
 def template_catalog_frame(templates: tuple[WorkflowTemplate, ...] | None = None) -> pd.DataFrame:
     rows = []
     for template in templates or all_templates():
@@ -81,11 +84,10 @@ class TemplateCatalogWriter:
                 cell.fill = header_fill
                 cell.font = header_font
                 cell.alignment = Alignment(horizontal="center", vertical="center")
-            for column_cells in sheet.columns:
+            for column_cells in sheet.iter_cols(max_row=min(sheet.max_row, WIDTH_SCAN_ROW_LIMIT + 1)):
                 max_length = 0
                 column_letter = get_column_letter(column_cells[0].column)
                 for cell in column_cells:
                     value = "" if cell.value is None else str(cell.value)
                     max_length = max(max_length, min(len(value), 56))
-                    cell.alignment = Alignment(vertical="center", wrap_text=True)
                 sheet.column_dimensions[column_letter].width = max(10, min(max_length + 2, 58))

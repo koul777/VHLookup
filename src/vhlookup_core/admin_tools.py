@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from numbers import Real
 from pathlib import Path
@@ -144,6 +145,8 @@ COUNT_DISPLAY_COLUMN = "건수"
 PIVOT_DECIMAL_PLACES = 2
 PIVOT_INTEGER_FORMAT = "#,##0"
 PIVOT_DECIMAL_FORMAT = "#,##0.##"
+WIDTH_SCAN_ROW_LIMIT = 200
+ProgressCallback = Callable[[int, str], None]
 
 
 @dataclass(frozen=True)
@@ -186,8 +189,8 @@ class AdminWorkbookTools:
         self.header_detector = header_detector or HeaderDetector()
         self.sheet_detector = sheet_detector or SheetDetector(self.header_detector)
 
-    def load_table(self, path: str | Path) -> tuple[pd.DataFrame, dict[str, Any]]:
-        source = self.loader.load(path)
+    def load_table(self, path: str | Path, max_rows: int | None = None) -> tuple[pd.DataFrame, dict[str, Any]]:
+        source = self.loader.load(path, max_rows=max_rows)
         sheet = self.sheet_detector.select(source)
         detection = self.header_detector.detect(sheet)
         table = self.header_detector.apply(sheet, detection)
@@ -277,8 +280,11 @@ class AdminWorkbookTools:
         path: str | Path,
         output_path: str | Path,
         split_column: str | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> SplitWorkbookResult:
+        self._emit_progress(progress_callback, 10, "원본 파일 읽는 중")
         table, metadata = self.load_table(path)
+        self._emit_progress(progress_callback, 30, "빈 행/열 정리 중")
         cleaned = self._clean_frame(table).reset_index(drop=True)
         selected_column = split_column or self.infer_split_column(cleaned)
         if selected_column not in cleaned.columns:
@@ -289,11 +295,18 @@ class AdminWorkbookTools:
         groups = list(cleaned.groupby(cleaned[selected_column].map(lambda value: "(빈값)" if is_blank(value) else str(value)), dropna=False))
         used_sheet_names = {"전체", "확인사항"}
         split_sheet_names: list[str] = []
+        self._emit_progress(progress_callback, 45, f"{len(groups)}개 분류 시트 생성 중")
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            for value, group in groups:
+            group_count = max(len(groups), 1)
+            for group_index, (value, group) in enumerate(groups, start=1):
                 sheet_name = self._unique_sheet_name(value, used_sheet_names)
                 group.to_excel(writer, sheet_name=sheet_name, index=False)
                 split_sheet_names.append(sheet_name)
+                self._emit_progress(
+                    progress_callback,
+                    45 + int(group_index / group_count * 35),
+                    f"{group_index}/{len(groups)} 분류 시트 저장 중",
+                )
             cleaned.to_excel(writer, sheet_name="전체", index=False)
             guide = pd.DataFrame(
                 [
@@ -307,11 +320,13 @@ class AdminWorkbookTools:
                 ]
             )
             guide.to_excel(writer, sheet_name="확인사항", index=False)
+            self._emit_progress(progress_callback, 90, "결과 엑셀 서식 적용 중")
             self._style_workbook(writer.book)
+        self._emit_progress(progress_callback, 100, "완료")
         return SplitWorkbookResult(output, selected_column, len(groups), len(cleaned))
 
-    def prepare_pivot_source(self, path: str | Path) -> tuple[pd.DataFrame, dict[str, Any]]:
-        table, metadata = self.load_table(path)
+    def prepare_pivot_source(self, path: str | Path, max_rows: int | None = None) -> tuple[pd.DataFrame, dict[str, Any]]:
+        table, metadata = self.load_table(path, max_rows=max_rows)
         cleaned = self._clean_frame(table).reset_index(drop=True)
         cleaned.columns = self._unique_column_names(cleaned.columns)
         return cleaned, metadata
@@ -419,8 +434,11 @@ class AdminWorkbookTools:
         column_column: str | None = None,
         value_column: str | None = None,
         aggregation: str = "건수",
+        progress_callback: ProgressCallback | None = None,
     ) -> PivotWorkbookResult:
+        self._emit_progress(progress_callback, 10, "원본 파일 읽는 중")
         source, metadata = self.prepare_pivot_source(path)
+        self._emit_progress(progress_callback, 45, "피벗 집계 계산 중")
         result = self.build_pivot_summary(
             source,
             row_column=row_column,
@@ -431,12 +449,14 @@ class AdminWorkbookTools:
         )
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
+        self._emit_progress(progress_callback, 80, "피벗 결과 엑셀 저장 중")
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             result.pivot_frame.to_excel(writer, sheet_name="피벗요약", index=False)
             self._pivot_review_frame(result).to_excel(writer, sheet_name="확인사항", index=False)
             self._style_workbook(writer.book)
             self._format_pivot_number_cells(writer.book, result)
             self._mark_pivot_summary(writer.book, result)
+        self._emit_progress(progress_callback, 100, "완료")
         return PivotWorkbookResult(
             output_path=output,
             row_column=str(result.summary["row_column"]),
@@ -446,6 +466,11 @@ class AdminWorkbookTools:
             row_count=int(result.summary["row_count"]),
             invalid_value_count=int(result.summary["invalid_value_count"]),
         )
+
+    def _emit_progress(self, callback: ProgressCallback | None, percent: int, message: str) -> None:
+        if callback is None:
+            return
+        callback(max(0, min(int(percent), 100)), message)
 
     def _pivot_review_frame(self, result: PivotSummaryResult) -> pd.DataFrame:
         rows: list[dict[str, object]] = []
@@ -822,11 +847,10 @@ class AdminWorkbookTools:
                 cell.fill = header_fill
                 cell.font = header_font
                 cell.alignment = Alignment(horizontal="center", vertical="center")
-            for column_cells in sheet.columns:
+            for column_cells in sheet.iter_cols(max_row=min(sheet.max_row, WIDTH_SCAN_ROW_LIMIT + 1)):
                 max_length = 0
                 column_letter = get_column_letter(column_cells[0].column)
                 for cell in column_cells:
                     value = "" if cell.value is None else str(cell.value)
                     max_length = max(max_length, min(len(value), 42))
-                    cell.alignment = Alignment(vertical="center", wrap_text=True)
                 sheet.column_dimensions[column_letter].width = max(10, min(max_length + 2, 44))

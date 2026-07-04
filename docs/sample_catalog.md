@@ -204,3 +204,23 @@ CLI 방식으로 샘플을 실행해 보려면 `run_cli_examples.bat`을 더블�
 - 부서별/월별 예산 집행 합계를 `피벗요약` 시트로 만듭니다.
 - 기준 설명과 상위 항목은 `확인사항` 시트에서 확인합니다.
 - `건수` 집계를 선택하면 값 열 없이 행 개수를 요약할 수 있습니다.
+
+## 11. 대용량 열 합치기 성능 확인
+
+입력:
+
+- `samples/public_admin/90_extra_cli_samples/large_column_merge_10k/large_employee_master_10k.xlsx`
+- `samples/public_admin/90_extra_cli_samples/large_column_merge_10k/large_training_results_10k.xlsx`
+
+추천 선택:
+
+- 메뉴: `3. 엑셀/CSV 파일 여러 개 합치기`
+- 합치기 방향: `자동 선택` 또는 `열 합치기`
+
+확인 포인트:
+
+- 각 파일은 10,000행 x 71열입니다.
+- 결과는 10,000행 x 141열입니다.
+- `사번`과 `직원번호`를 자동 키로 잡습니다.
+- 실행 중 진행률 창에서 파일 읽기, 키 찾기, 결과 저장 단계가 표시됩니다.
+- 실제 개인정보가 아닌 합성 식별자와 테스트 값만 들어 있습니다.

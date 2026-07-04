@@ -25,7 +25,7 @@ Get-FileHash .\VHLookupLocal_pivot_v1.1.exe -Algorithm SHA256
 현재 Release 기준 SHA256은 아래와 같습니다.
 
 ```text
-898191341AAAD542910C78224ABFA6812289919057BC0151C4E64CFF721A4C54
+6CA8A5F916256C002C2F44CEFD55E16E2A5AAA36CF5BC7BAECCBF11E3E0609F1
 ```
 
 공식 Release에서 받은 파일이고 SHA256이 일치하면 Edge 다운로드 목록에서 `유지` 또는 `그래도 유지`를 선택할 수 있습니다. 실행 시 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다.
@@ -133,6 +133,7 @@ dist\VHLookupLocal_pivot_v1.1.exe
 - 파일 합치기에서는 개인정보 의심 컬럼을 따로 점검하거나 색칠하지 않음
 - 자동 매칭이 틀리면 `컬럼 매칭 수정`에서 드롭박스로 직접 지정
 - 미리보기에서 앞 10행 확인 후 실행
+- 대용량 합치기 실행 중에는 진행률 창에서 파일 읽기, 키 찾기, 결과 저장 단계를 표시
 
 ### 4. 전/후 파일 검증
 
@@ -171,7 +172,8 @@ dist\VHLookupLocal_pivot_v1.1.exe
 5. 자동 추천이 틀리면 드롭박스에서 컬럼 매칭이나 기준 열을 수정합니다.
 6. `실행`을 누릅니다.
 7. 저장 창에서 결과 파일을 저장할 폴더와 파일명을 선택합니다.
-8. 저장이 끝나면 선택한 결과 폴더가 열립니다.
+8. 대용량 데이터는 진행률 창에서 현재 단계와 퍼센트를 확인합니다.
+9. 저장이 끝나면 선택한 결과 폴더가 열립니다.
 
 ## 샘플 데이터
 
@@ -198,6 +200,7 @@ samples\public_admin
 ├─ 04_before_after_validation
 ├─ 05_pivot_summary
 └─ 90_extra_cli_samples
+   └─ large_column_merge_10k
 ```
 
 ### 메뉴별 샘플
@@ -258,6 +261,16 @@ samples\public_admin
 - 결과에서 먼저 볼 시트: `결과`
 - 그 다음 참고 시트: `확인사항`
 
+**대용량 열 합치기 성능 샘플**
+
+- 누를 기능: `3. 엑셀/CSV 파일 여러 개 합치기`
+- 선택할 파일:
+  - `samples\public_admin\90_extra_cli_samples\large_column_merge_10k\large_employee_master_10k.xlsx`
+  - `samples\public_admin\90_extra_cli_samples\large_column_merge_10k\large_training_results_10k.xlsx`
+- 화면 선택값: 합치기 방향 `자동 선택` 또는 `열 합치기`
+- 예상 규모: 입력 10,000행 x 71열 파일 2개, 결과 10,000행 x 141열
+- 확인 포인트: `사번`과 `직원번호`를 자동 키로 잡고, 실행 중 진행률 창에 파일 읽기/키 찾기/결과 저장 단계가 표시되는지 확인
+
 **전/후 파일 변경 검증**
 
 - 누를 기능: `4. 전/후 파일 검증`
@@ -288,7 +301,7 @@ samples\public_admin
 - 결과에서 먼저 볼 시트: `피벗요약`
 - 그 다음 참고 시트: `확인사항`
 
-월별 가로표 변환과 제출대상 누락 확인처럼 현재 첫 화면 1~5번 버튼 밖에 있는 샘플은 `samples\public_admin\90_extra_cli_samples`에 따로 뒀습니다.
+월별 가로표 변환, 제출대상 누락 확인, 대용량 성능 확인처럼 기본 흐름 밖의 샘플은 `samples\public_admin\90_extra_cli_samples`에 따로 뒀습니다.
 
 샘플 종류와 확인 포인트는 [docs/sample_catalog.md](docs/sample_catalog.md)에 더 자세히 정리되어 있습니다.
 

@@ -25,6 +25,7 @@ class MergeEngine:
         target_key_columns = key_spec.target_columns()
         reference_keys = build_key_series(reference, ref_key_columns, key_spec.normalization)
         target_keys = build_key_series(target, target_key_columns, key_spec.normalization)
+        reference_loose_key_lookup = self._build_loose_key_lookup(reference, ref_key_columns, reference_keys)
 
         issues: list[ValidationIssue] = []
         reference_with_key = reference.copy()
@@ -101,8 +102,7 @@ class MergeEngine:
                 mismatch = self._find_format_mismatch(
                     key,
                     target_with_key.loc[row_index, list(target_key_columns)].tolist(),
-                    reference_with_key,
-                    ref_key_columns,
+                    reference_loose_key_lookup,
                 )
                 if mismatch:
                     issues.append(
@@ -196,20 +196,29 @@ class MergeEngine:
         self,
         key: str,
         target_values: list[object],
-        reference: pd.DataFrame,
-        reference_key_columns: tuple[str, ...],
+        reference_loose_key_lookup: dict[str, str],
     ) -> dict[str, str] | None:
         target_loose = "\x1f".join(normalize_key_value(value, "loose_numeric") for value in target_values)
         if target_loose == "":
             return None
-        for _, row in reference.iterrows():
-            reference_values = row.loc[list(reference_key_columns)].tolist()
-            reference_loose = "\x1f".join(
-                normalize_key_value(value, "loose_numeric") for value in reference_values
-            )
-            if reference_loose == target_loose and row["__vh_key"] != key:
-                return {"target_key": key, "reference_key": row["__vh_key"]}
+        reference_key = reference_loose_key_lookup.get(target_loose)
+        if reference_key and reference_key != key:
+            return {"target_key": key, "reference_key": reference_key}
         return None
+
+    def _build_loose_key_lookup(
+        self,
+        reference: pd.DataFrame,
+        reference_key_columns: tuple[str, ...],
+        reference_keys: pd.Series,
+    ) -> dict[str, str]:
+        loose_keys = build_key_series(reference, reference_key_columns, normalization="loose_numeric")
+        lookup: dict[str, str] = {}
+        for loose_key, exact_key in zip(loose_keys, reference_keys):
+            if loose_key == "" or exact_key == "":
+                continue
+            lookup.setdefault(str(loose_key), str(exact_key))
+        return lookup
 
     def _output_column_name(
         self,

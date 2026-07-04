@@ -21,6 +21,7 @@ samples/public_admin
 ├─ 04_before_after_validation
 ├─ 05_pivot_summary
 └─ 90_extra_cli_samples
+   └─ large_column_merge_10k
 ```
 
 ## 1. 개인정보 마스킹
@@ -69,6 +70,13 @@ samples/public_admin
 - 파일 합치기 결과에서는 개인정보 의심 컬럼을 따로 색칠하지 않음
 - 자동 매칭 근거와 확인할 점은 `확인사항` 시트에 표시
 - 복합 키 `사번 + 지급월` 기준 열 합치기
+- 대용량 실행 중 진행률 창에 파일 읽기, 키 찾기, 결과 저장 단계 표시
+
+대용량 성능 확인 샘플:
+- `90_extra_cli_samples/large_column_merge_10k/large_employee_master_10k.xlsx`
+- `90_extra_cli_samples/large_column_merge_10k/large_training_results_10k.xlsx`
+
+두 파일은 각각 10,000행 x 71열이며, 열 합치기 결과는 10,000행 x 141열입니다. 실제 개인정보가 아닌 합성 식별자와 테스트 값만 들어 있습니다.
 
 ## 4. 전/후 파일 검증
 
@@ -104,3 +112,4 @@ samples/public_admin
 
 - `90_extra_cli_samples/submission_reconciliation`: 제출 대상자 누락 확인
 - `90_extra_cli_samples/horizontal_table`: 월별 가로표 세로 변환
+- `90_extra_cli_samples/large_column_merge_10k`: 10,000행 x 2개 열 합치기 성능 확인

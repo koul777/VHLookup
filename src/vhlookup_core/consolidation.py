@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Literal
@@ -15,6 +16,9 @@ from vhlookup_core.models import JobResult, KeySpec, ValidationIssue
 from vhlookup_core.sheet import SheetDetector
 from vhlookup_core.templates import WorkflowTemplate, get_template
 from vhlookup_core.validation import ValidationEngine, ValidationProfile
+
+
+ProgressCallback = Callable[[int, str], None]
 
 
 class ConsolidationEngine:
@@ -38,11 +42,12 @@ class ConsolidationEngine:
         self,
         files: list[str | Path],
         scan_rows: int | str = 30,
+        max_rows_per_file: int | None = None,
     ) -> Literal["rows", "columns"]:
         loaded: list[pd.DataFrame] = []
         for file in files:
             try:
-                source = self.loader.load(Path(file))
+                source = self.loader.load(Path(file), max_rows=max_rows_per_file)
                 sheet = self.sheet_detector.select(source)
                 detection = self.header_detector.detect(sheet, scan_rows=scan_rows)
                 loaded.append(self.header_detector.apply(sheet, detection))
@@ -75,6 +80,7 @@ class ConsolidationEngine:
         standard_columns: list[str] | None = None,
         scan_rows: int | str = 30,
         template: WorkflowTemplate | str | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> JobResult:
         folder_path = Path(folder)
         if not folder_path.exists():
@@ -82,7 +88,13 @@ class ConsolidationEngine:
         files = sorted(
             path for path in folder_path.iterdir() if path.is_file() and path.suffix.lower() in self.supported_suffixes
         )
-        return self.consolidate_files(files, standard_columns=standard_columns, scan_rows=scan_rows, template=template)
+        return self.consolidate_files(
+            files,
+            standard_columns=standard_columns,
+            scan_rows=scan_rows,
+            template=template,
+            progress_callback=progress_callback,
+        )
 
     def consolidate_files(
         self,
@@ -91,6 +103,8 @@ class ConsolidationEngine:
         scan_rows: int | str = 30,
         template: WorkflowTemplate | str | None = None,
         saved_mappings_by_file: dict[str, dict[str, str]] | None = None,
+        max_rows_per_file: int | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> JobResult:
         issues: list[ValidationIssue] = []
         frames: list[pd.DataFrame] = []
@@ -104,10 +118,16 @@ class ConsolidationEngine:
         resolved_standard_columns = standard_columns
         mapping_count = 0
 
-        for file in files:
+        total_files = max(len(files), 1)
+        for file_index, file in enumerate(files, start=1):
             path = Path(file)
             try:
-                source = self.loader.load(path)
+                self._emit_progress(
+                    progress_callback,
+                    5 + int((file_index - 1) / total_files * 65),
+                    f"{file_index}/{len(files)} 파일 읽는 중: {path.name}",
+                )
+                source = self.loader.load(path, max_rows=max_rows_per_file)
                 sheet = self.sheet_detector.select(source)
                 detection = self.header_detector.detect(sheet, scan_rows=scan_rows)
                 table = self.header_detector.apply(sheet, detection)
@@ -189,6 +209,11 @@ class ConsolidationEngine:
                             sheet_name=sheet.name,
                         )
                     )
+                self._emit_progress(
+                    progress_callback,
+                    5 + int(file_index / total_files * 65),
+                    f"{file_index}/{len(files)} 파일 정리 완료: {path.name}",
+                )
             except Exception as exc:
                 issues.append(
                     ValidationIssue(
@@ -200,11 +225,14 @@ class ConsolidationEngine:
                     )
                 )
 
+        self._emit_progress(progress_callback, 74, "파일을 하나의 표로 합치는 중")
         result = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         if not result.empty:
+            self._emit_progress(progress_callback, 78, "결과 값 검증 중")
             issues.extend(self.validation_engine.validate_frame(result, validation_profile))
             issues.extend(self._one_sided_column_issues(result, produced_columns_by_file, sheet_by_file))
             issues = self._attach_result_indices(result, issues)
+        self._emit_progress(progress_callback, 84, "결과표 정리 중")
         public_result = self._drop_tracking_columns(result)
         summary = {
             "workflow": workflow_template.name if workflow_template else "사용자 지정 수합",
@@ -233,15 +261,23 @@ class ConsolidationEngine:
         files: list[str | Path],
         scan_rows: int | str = 30,
         merge_plans_by_file: dict[str, dict[str, object]] | None = None,
+        max_rows_per_file: int | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> JobResult:
         loaded: list[tuple[Path, str, pd.DataFrame]] = []
         issues: list[ValidationIssue] = []
         mapping_records: list[dict[str, object]] = []
 
-        for file in files:
+        total_files = max(len(files), 1)
+        for file_index, file in enumerate(files, start=1):
             path = Path(file)
             try:
-                source = self.loader.load(path)
+                self._emit_progress(
+                    progress_callback,
+                    5 + int((file_index - 1) / total_files * 35),
+                    f"{file_index}/{len(files)} 파일 읽는 중: {path.name}",
+                )
+                source = self.loader.load(path, max_rows=max_rows_per_file)
                 sheet = self.sheet_detector.select(source)
                 detection = self.header_detector.detect(sheet, scan_rows=scan_rows)
                 table = self.header_detector.apply(sheet, detection)
@@ -257,6 +293,11 @@ class ConsolidationEngine:
                         "추천 방식": f"{detection.header_row_number}행을 헤더로 자동 선택",
                         "검토 메모": "; ".join(detection.warnings),
                     }
+                )
+                self._emit_progress(
+                    progress_callback,
+                    5 + int(file_index / total_files * 35),
+                    f"{file_index}/{len(files)} 파일 읽기 완료: {path.name}",
                 )
             except Exception as exc:
                 issues.append(
@@ -284,6 +325,7 @@ class ConsolidationEngine:
                 mapping_records=mapping_records,
             )
 
+        self._emit_progress(progress_callback, 43, "기준 표 준비 중")
         base_path, base_sheet, base_table = loaded[0]
         result = base_table.reset_index(drop=True).copy()
         mapping_records.append(
@@ -301,9 +343,16 @@ class ConsolidationEngine:
 
         planner = AutoLookupPlanner()
         merger = MergeEngine()
-        for file_order, (path, sheet_name, table) in enumerate(loaded[1:], start=2):
+        merge_total = max(len(loaded) - 1, 1)
+        for merge_index, (path, sheet_name, table) in enumerate(loaded[1:], start=1):
+            file_order = merge_index + 1
             reference = table.reset_index(drop=True).copy()
             try:
+                self._emit_progress(
+                    progress_callback,
+                    45 + int((merge_index - 1) / merge_total * 35),
+                    f"{file_order}번째 파일 키 찾는 중: {path.name}",
+                )
                 manual_plan = self._mapping_for_file(merge_plans_by_file, path)
                 if manual_plan:
                     reference_keys = tuple(manual_plan.get("source_key_columns", ()))
@@ -361,6 +410,11 @@ class ConsolidationEngine:
                                 "검토 메모": "",
                             }
                         )
+                    self._emit_progress(
+                        progress_callback,
+                        45 + int(merge_index / merge_total * 35),
+                        f"{file_order}번째 파일 열 붙이기 완료: {path.name}",
+                    )
                     continue
 
                 plan = planner.infer_lookup_plan(reference, result)
@@ -391,6 +445,11 @@ class ConsolidationEngine:
                     evidence["파일명"] = path.name
                     evidence["시트명"] = sheet_name
                     mapping_records.append(evidence)
+                self._emit_progress(
+                    progress_callback,
+                    45 + int(merge_index / merge_total * 35),
+                    f"{file_order}번째 파일 열 붙이기 완료: {path.name}",
+                )
             except Exception as exc:
                 result = self._append_columns_by_position(result, reference, path.stem)
                 issues.append(
@@ -415,7 +474,13 @@ class ConsolidationEngine:
                         "검토 메모": str(exc),
                     }
                 )
+                self._emit_progress(
+                    progress_callback,
+                    45 + int(merge_index / merge_total * 35),
+                    f"{file_order}번째 파일 행 순서로 붙임: {path.name}",
+                )
 
+        self._emit_progress(progress_callback, 84, "결과표 정리 중")
         summary = {
             "workflow": "열 방향 파일 합치기",
             "file_count": len(files),
@@ -425,6 +490,11 @@ class ConsolidationEngine:
             "issue_count": len(issues),
         }
         return JobResult(result_frame=result, issues=issues, summary=summary, mapping_records=mapping_records)
+
+    def _emit_progress(self, callback: ProgressCallback | None, percent: int, message: str) -> None:
+        if callback is None:
+            return
+        callback(max(0, min(int(percent), 100)), message)
 
     def _annotate_column_merge_issues(
         self,

@@ -119,6 +119,25 @@ def test_column_merge_attaches_columns_by_common_key(tmp_path):
     assert "키 컬럼" in {row["역할"] for row in result.mapping_records}
 
 
+def test_column_merge_reports_progress(tmp_path):
+    file_one = tmp_path / "base.xlsx"
+    file_two = tmp_path / "extra.xlsx"
+    pd.DataFrame({"사번": ["001", "002"], "성명": ["홍길동", "김영희"]}).to_excel(file_one, index=False)
+    pd.DataFrame({"사번": ["001", "002"], "직급": ["주무관", "팀장"]}).to_excel(file_two, index=False)
+    events: list[tuple[int, str]] = []
+
+    result = ConsolidationEngine().merge_files_by_columns(
+        [file_one, file_two],
+        progress_callback=lambda percent, message: events.append((percent, message)),
+    )
+
+    assert result.result_frame.loc[0, "직급"] == "주무관"
+    assert events
+    assert events[-1][0] >= 84
+    assert any("파일 읽는 중" in message for _percent, message in events)
+    assert any("키 찾는 중" in message for _percent, message in events)
+
+
 def test_column_merge_marks_unmatched_attached_cells_with_comment(tmp_path):
     output = tmp_path / "result.xlsx"
     file_one = HR_SAMPLES / "hr_employee_master.csv"

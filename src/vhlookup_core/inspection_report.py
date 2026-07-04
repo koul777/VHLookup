@@ -10,6 +10,9 @@ from vhlookup_core.excel_comments import make_comment
 from vhlookup_core.inspection import InspectionResult
 
 
+WIDTH_SCAN_ROW_LIMIT = 200
+
+
 class InspectionReportWriter:
     def write_xlsx(self, result: InspectionResult, path: str | Path) -> Path:
         output_path = Path(path)
@@ -231,11 +234,10 @@ class InspectionReportWriter:
                 cell.fill = header_fill
                 cell.font = header_font
                 cell.alignment = Alignment(horizontal="center", vertical="center")
-            for column_cells in sheet.columns:
+            for column_cells in sheet.iter_cols(max_row=min(sheet.max_row, WIDTH_SCAN_ROW_LIMIT + 1)):
                 max_length = 0
                 column_letter = get_column_letter(column_cells[0].column)
                 for cell in column_cells:
                     value = "" if cell.value is None else str(cell.value)
                     max_length = max(max_length, min(len(value), 48))
-                    cell.alignment = Alignment(vertical="center", wrap_text=True)
                 sheet.column_dimensions[column_letter].width = max(10, min(max_length + 2, 50))

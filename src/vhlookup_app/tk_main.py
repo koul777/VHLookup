@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import queue
 import sys
+import threading
 import traceback
 from numbers import Integral, Real
 from datetime import datetime
@@ -36,6 +38,8 @@ from vhlookup_core.reconciliation import ReconciliationEngine
 
 
 APP_TITLE = APP_DISPLAY_NAME
+PREVIEW_LOAD_ROW_LIMIT = 250
+WIDTH_SCAN_ROW_LIMIT = 200
 
 
 def app_base_dir() -> Path:
@@ -49,11 +53,11 @@ def resource_path(relative_path: str) -> Path:
     return base / relative_path
 
 
-def load_table(path: Path):
+def load_table(path: Path, max_rows: int | None = None):
     loader = ExcelLoader()
     header_detector = HeaderDetector()
     sheet_detector = SheetDetector(header_detector)
-    source = loader.load(path)
+    source = loader.load(path, max_rows=max_rows)
     sheet = sheet_detector.select(source)
     detection = header_detector.detect(sheet)
     return header_detector.apply(sheet, detection)
@@ -80,13 +84,12 @@ def style_workbook(workbook) -> None:
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center", vertical="center")
-        for column_cells in sheet.columns:
+        for column_cells in sheet.iter_cols(max_row=min(sheet.max_row, WIDTH_SCAN_ROW_LIMIT + 1)):
             max_length = 0
             column_letter = get_column_letter(column_cells[0].column)
             for cell in column_cells:
                 value = "" if cell.value is None else str(cell.value)
                 max_length = max(max_length, min(len(value), 48))
-                cell.alignment = Alignment(vertical="center", wrap_text=True)
             sheet.column_dimensions[column_letter].width = max(10, min(max_length + 2, 50))
 
 
@@ -449,11 +452,11 @@ class LocalApp:
         if not output:
             return
 
-        def job():
-            PrivacyMaskingEngine().write_xlsx(file_path, output)
+        def job(progress):
+            PrivacyMaskingEngine().write_xlsx(file_path, output, progress_callback=progress)
             return [output]
 
-        self._run("개인정보 마스킹", job, open_path=output.parent)
+        self._run_with_progress("개인정보 마스킹", job, open_path=output.parent)
 
     def quick_split_sheets(self) -> None:
         file_path = self._ask_file_or_none("분류별로 나눌 엑셀/CSV 파일을 선택하세요")
@@ -462,7 +465,7 @@ class LocalApp:
 
         tools = AdminWorkbookTools()
         try:
-            table, _metadata = tools.load_table(file_path)
+            table, _metadata = tools.load_table(file_path, max_rows=PREVIEW_LOAD_ROW_LIMIT)
             inferred_column = tools.infer_split_column(table)
         except Exception as exc:
             messagebox.showerror(APP_TITLE, str(exc))
@@ -480,13 +483,12 @@ class LocalApp:
         if not output:
             return
 
-        def job():
-            split_result = tools.write_split_workbook(file_path, output, selected_column)
-            self.log_insert(f"분류 기준 열: {split_result.split_column}")
-            self.log_insert(f"생성 시트 수: {split_result.sheet_count}")
+        def job(progress):
+            split_result = tools.write_split_workbook(file_path, output, selected_column, progress_callback=progress)
+            progress(100, f"{split_result.sheet_count}개 시트 생성 완료")
             return [output]
 
-        self._run("분류별 시트 나누기", job, open_path=output.parent)
+        self._run_with_progress("분류별 시트 나누기", job, open_path=output.parent)
 
     def _choose_column_dialog(
         self,
@@ -592,7 +594,7 @@ class LocalApp:
 
     def _confirm_row_merge_preview(self, files: list[Path]) -> dict[str, dict[str, str]] | None:
         try:
-            tables = [(file, load_table(file)) for file in files]
+            tables = [(file, load_table(file, max_rows=PREVIEW_LOAD_ROW_LIMIT)) for file in files]
         except Exception as exc:
             messagebox.showerror(APP_TITLE, f"미리보기를 만들 수 없습니다.\n{exc}")
             return None
@@ -683,7 +685,7 @@ class LocalApp:
         return result
 
     def _infer_column_merge_settings(self, files: list[Path]) -> tuple[list[tuple[Path, pd.DataFrame]], dict[str, dict[str, object]]]:
-        tables = [(file, load_table(file)) for file in files]
+        tables = [(file, load_table(file, max_rows=PREVIEW_LOAD_ROW_LIMIT)) for file in files]
         if len(tables) < 2:
             return tables, {}
         base_frame = tables[0][1]
@@ -787,7 +789,11 @@ class LocalApp:
 
         def refresh_preview() -> None:
             try:
-                preview = ConsolidationEngine().merge_files_by_columns(files, merge_plans_by_file=current_settings()).result_frame
+                preview = ConsolidationEngine().merge_files_by_columns(
+                    files,
+                    merge_plans_by_file=current_settings(),
+                    max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT,
+                ).result_frame
                 self._write_preview_tree(preview_tree, preview, limit=10)
             except Exception as exc:
                 self._write_preview_tree(preview_tree, pd.DataFrame([{"미리보기 오류": str(exc)}]), limit=10)
@@ -819,11 +825,15 @@ class LocalApp:
 
     def _confirm_diff_preview(self, before_path: Path, after_path: Path) -> dict[str, object] | None:
         try:
-            before_frame = load_table(before_path)
-            after_frame = load_table(after_path)
+            before_frame = load_table(before_path, max_rows=PREVIEW_LOAD_ROW_LIMIT)
+            after_frame = load_table(after_path, max_rows=PREVIEW_LOAD_ROW_LIMIT)
             engine = WorkbookDiffEngine()
             auto_mapping = engine.suggest_column_mapping(before_frame, after_frame)
-            initial_result = engine.compare_files(before_path, after_path)
+            initial_result = engine.compare_files(
+                before_path,
+                after_path,
+                max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT,
+            )
         except Exception as exc:
             messagebox.showerror(APP_TITLE, f"미리보기를 만들 수 없습니다.\n{exc}")
             return None
@@ -884,6 +894,7 @@ class LocalApp:
                     after_path,
                     column_mapping_override=current_mapping(),
                     key_columns=current_key_columns(),
+                    max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT,
                 )
                 preview = preview_result.diff_frame
                 if preview.empty:
@@ -1016,19 +1027,24 @@ class LocalApp:
                 return selected
             if len(files) < 2:
                 return "rows"
-            return ConsolidationEngine().recommend_merge_mode(files)
+            return ConsolidationEngine().recommend_merge_mode(files, max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT)
 
         def build_preview_frame() -> pd.DataFrame:
             if not files:
                 return pd.DataFrame([{"안내": "파일 올리기를 눌러 합칠 파일을 선택하세요."}])
             mode = effective_merge_mode()
             if mode == "columns":
-                result = ConsolidationEngine().merge_files_by_columns(files, merge_plans_by_file=manual_column_plans)
+                result = ConsolidationEngine().merge_files_by_columns(
+                    files,
+                    merge_plans_by_file=manual_column_plans,
+                    max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT,
+                )
             else:
                 result = ConsolidationEngine().consolidate_files(
                     files,
                     template=None,
                     saved_mappings_by_file=manual_row_mappings,
+                    max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT,
                 )
             if result.result_frame.empty:
                 return pd.DataFrame([{"안내": "미리볼 데이터가 없습니다.", "확인 필요": len(result.issues)}])
@@ -1082,23 +1098,28 @@ class LocalApp:
                 return
             dialog.destroy()
 
-            def job():
+            def job(progress):
+                progress(3, "합치기 작업 준비 중")
                 if selected_mode == "columns":
                     result = ConsolidationEngine().merge_files_by_columns(
                         selected_files,
                         merge_plans_by_file=manual_column_plans,
+                        progress_callback=progress,
                     )
                 else:
                     result = ConsolidationEngine().consolidate_files(
                         selected_files,
                         template=None,
                         saved_mappings_by_file=manual_row_mappings,
+                        progress_callback=progress,
                     )
+                progress(90, "결과 엑셀 저장 중")
                 ReportWriter().write_xlsx(result, output, mark_result_cells=True, include_privacy_scan=False)
+                progress(100, "완료")
                 return [output]
 
             label = "열 방향 파일 합치기" if selected_mode == "columns" else "행 방향 파일 합치기"
-            self._run(label, job, open_path=output.parent)
+            self._run_with_progress(label, job, open_path=output.parent)
 
         ttk.Button(run_row, text="미리보기 새로고침", command=refresh_preview).pack(side="left")
         ttk.Button(run_row, text="컬럼 매칭 수정", command=edit_mapping).pack(side="left", padx=(8, 0))
@@ -1182,6 +1203,7 @@ class LocalApp:
                 Path(after_file.get()),
                 column_mapping_override=settings["mapping"],
                 key_columns=settings["key_columns"],
+                max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT,
             )
             if result.diff_frame.empty:
                 return pd.DataFrame(
@@ -1232,17 +1254,20 @@ class LocalApp:
                 return
             dialog.destroy()
 
-            def job():
+            def job(progress):
                 result = WorkbookDiffEngine().compare_files(
                     before_path,
                     after_path,
                     column_mapping_override=preview_settings["mapping"],
                     key_columns=preview_settings["key_columns"],
+                    progress_callback=progress,
                 )
+                progress(85, "검증 결과 엑셀 저장 중")
                 WorkbookDiffReportWriter().write_xlsx(result, output)
+                progress(100, "완료")
                 return [output]
 
-            self._run("전/후 파일 검증", job, open_path=output.parent)
+            self._run_with_progress("전/후 파일 검증", job, open_path=output.parent)
 
         ttk.Button(button_row, text="미리보기 새로고침", command=refresh_preview).pack(side="left")
         ttk.Button(button_row, text="컬럼 매칭 수정", command=edit_mapping).pack(side="left", padx=(8, 0))
@@ -1375,7 +1400,7 @@ class LocalApp:
             if not selected:
                 return
             try:
-                table_frame, table_metadata = tools.prepare_pivot_source(selected)
+                table_frame, table_metadata = tools.prepare_pivot_source(selected, max_rows=PREVIEW_LOAD_ROW_LIMIT)
                 defaults = tools.infer_pivot_defaults(table_frame)
             except Exception as exc:
                 messagebox.showerror(APP_TITLE, f"파일을 읽을 수 없습니다.\n{exc}")
@@ -1425,7 +1450,7 @@ class LocalApp:
                 return
             dialog.destroy()
 
-            def job():
+            def job(progress):
                 tools.write_pivot_workbook(
                     selected_file,
                     output,
@@ -1433,10 +1458,11 @@ class LocalApp:
                     column_column=selected_column,
                     value_column=selected_value,
                     aggregation=selected_aggregation,
+                    progress_callback=progress,
                 )
                 return [output]
 
-            self._run("피벗 요약표 만들기", job, open_path=output.parent)
+            self._run_with_progress("피벗 요약표 만들기", job, open_path=output.parent)
 
         ttk.Button(button_row, text="미리보기 새로고침", command=refresh_preview).pack(side="left")
         ttk.Button(button_row, text="취소", command=cancel).pack(side="right")
@@ -1456,16 +1482,22 @@ class LocalApp:
         if not output:
             return
 
-        def job():
+        def job(progress):
+            progress(10, "기준표 읽는 중")
             reference_frame = load_table(reference)
+            progress(25, "대상표 읽는 중")
             target_frame = load_table(target)
+            progress(45, "자동 키와 가져올 컬럼 찾는 중")
             plan = AutoLookupPlanner().infer_lookup_plan(reference_frame, target_frame)
+            progress(65, "기준표 값 붙이는 중")
             result = MergeEngine().merge_lookup(reference_frame, target_frame, plan.key_spec, list(plan.value_columns))
             attach_auto_summary(result, plan, "기준표에서 값 붙이기")
+            progress(88, "결과 엑셀 저장 중")
             ReportWriter().write_xlsx(result, output)
+            progress(100, "완료")
             return [output]
 
-        self._run("기준표 값 붙이기", job, open_path=output.parent)
+        self._run_with_progress("기준표 값 붙이기", job, open_path=output.parent)
 
     def quick_reconcile(self) -> None:
         reference = self._ask_file_or_none("기준 명단 파일을 선택하세요")
@@ -1478,16 +1510,22 @@ class LocalApp:
         if not output:
             return
 
-        def job():
+        def job(progress):
+            progress(10, "기준 명단 읽는 중")
             reference_frame = load_table(reference)
+            progress(25, "대조 명단 읽는 중")
             target_frame = load_table(target)
+            progress(45, "자동 키 찾는 중")
             plan = AutoLookupPlanner().infer_reconciliation_key_spec(reference_frame, target_frame)
+            progress(65, "누락 항목 비교 중")
             result = ReconciliationEngine().compare_lists(reference_frame, target_frame, plan.key_spec)
             attach_auto_summary(result, plan, "빠진 사람/누락자료 찾기")
+            progress(88, "결과 엑셀 저장 중")
             ReportWriter().write_xlsx(result, output)
+            progress(100, "완료")
             return [output]
 
-        self._run("빠진 사람/기관 찾기", job, open_path=output.parent)
+        self._run_with_progress("빠진 사람/기관 찾기", job, open_path=output.parent)
 
     def quick_horizontal(self) -> None:
         file_path = self._ask_file_or_none("월별 가로표 파일을 선택하세요")
@@ -1497,20 +1535,25 @@ class LocalApp:
         if not output:
             return
 
-        def job():
+        def job(progress):
+            progress(10, "원본 가로표 읽는 중")
             table = load_table(file_path)
             engine = HorizontalTableEngine()
+            progress(35, "월/분기 열 찾는 중")
             detection = engine.detect(table)
             id_columns = [column for column in table.columns if column not in detection.value_columns]
+            progress(55, "세로형 표로 변환 중")
             converted = engine.wide_to_long(table, id_columns=id_columns)
             result = JobResult(
                 result_frame=converted,
                 summary={"workflow": "월별 가로표 세로 변환", "row_count": len(converted)},
             )
+            progress(88, "결과 엑셀 저장 중")
             ReportWriter().write_xlsx(result, output)
+            progress(100, "완료")
             return [output]
 
-        self._run("월별 가로표 세로 변환", job, open_path=output.parent)
+        self._run_with_progress("월별 가로표 세로 변환", job, open_path=output.parent)
 
     def _build_consolidate_tab(self, notebook: ttk.Notebook) -> None:
         frame = ttk.Frame(notebook, padding=12)
@@ -1605,73 +1648,111 @@ class LocalApp:
             variable.set(selected if selected.lower().endswith(".xlsx") else f"{selected}.xlsx")
 
     def run_consolidate(self) -> None:
-        def job():
+        folder = self.consolidate_folder.get()
+        standard_columns = split_columns(self.consolidate_columns.get()) or None
+        output = Path(self.consolidate_output.get())
+
+        def job(progress):
+            progress(5, "수합 폴더 파일 읽는 중")
             result = ConsolidationEngine().consolidate_folder(
-                self.consolidate_folder.get(),
-                standard_columns=split_columns(self.consolidate_columns.get()) or None,
+                folder,
+                standard_columns=standard_columns,
                 template="school_submission_consolidation",
+                progress_callback=progress,
             )
-            output = Path(self.consolidate_output.get())
+            progress(88, "결과 엑셀 저장 중")
             ReportWriter().write_xlsx(result, output, mark_result_cells=False, include_privacy_scan=False)
+            progress(100, "완료")
             return [output]
 
-        self._run("제출자료 수합", job, open_path=Path(self.consolidate_output.get()).parent)
+        self._run_with_progress("제출자료 수합", job, open_path=output.parent)
 
     def run_lookup(self) -> None:
-        def job():
-            reference = load_table(Path(self.lookup_reference.get()))
-            target = load_table(Path(self.lookup_target.get()))
+        reference_path = Path(self.lookup_reference.get())
+        target_path = Path(self.lookup_target.get())
+        preferred_key = tuple(split_columns(self.lookup_key.get()))
+        preferred_target_key = tuple(split_columns(self.lookup_target_key.get()))
+        preferred_values = tuple(split_columns(self.lookup_values.get()))
+        output = Path(self.lookup_output.get())
+
+        def job(progress):
+            progress(10, "기준표 읽는 중")
+            reference = load_table(reference_path)
+            progress(25, "대상표 읽는 중")
+            target = load_table(target_path)
+            progress(45, "자동 키와 가져올 컬럼 찾는 중")
             plan = AutoLookupPlanner().infer_lookup_plan(
                 reference,
                 target,
-                preferred_reference_key_columns=tuple(split_columns(self.lookup_key.get())),
-                preferred_target_key_columns=tuple(split_columns(self.lookup_target_key.get())),
-                preferred_value_columns=tuple(split_columns(self.lookup_values.get())),
+                preferred_reference_key_columns=preferred_key,
+                preferred_target_key_columns=preferred_target_key,
+                preferred_value_columns=preferred_values,
             )
+            progress(65, "기준표 값 붙이는 중")
             result = MergeEngine().merge_lookup(reference, target, plan.key_spec, list(plan.value_columns))
             attach_auto_summary(result, plan, "기준표에서 값 붙이기")
-            output = Path(self.lookup_output.get())
+            progress(88, "결과 엑셀 저장 중")
             ReportWriter().write_xlsx(result, output)
+            progress(100, "완료")
             return [output]
 
-        self._run("값 붙이기", job, open_path=Path(self.lookup_output.get()).parent)
+        self._run_with_progress("값 붙이기", job, open_path=output.parent)
 
     def run_reconcile(self) -> None:
-        def job():
-            reference = load_table(Path(self.reconcile_reference.get()))
-            target = load_table(Path(self.reconcile_target.get()))
+        reference_path = Path(self.reconcile_reference.get())
+        target_path = Path(self.reconcile_target.get())
+        preferred_key = tuple(split_columns(self.reconcile_key.get()))
+        preferred_target_key = tuple(split_columns(self.reconcile_target_key.get()))
+        output = Path(self.reconcile_output.get())
+
+        def job(progress):
+            progress(10, "기준 명단 읽는 중")
+            reference = load_table(reference_path)
+            progress(25, "대조 명단 읽는 중")
+            target = load_table(target_path)
+            progress(45, "자동 키 찾는 중")
             plan = AutoLookupPlanner().infer_reconciliation_key_spec(
                 reference,
                 target,
-                preferred_reference_key_columns=tuple(split_columns(self.reconcile_key.get())),
-                preferred_target_key_columns=tuple(split_columns(self.reconcile_target_key.get())),
+                preferred_reference_key_columns=preferred_key,
+                preferred_target_key_columns=preferred_target_key,
             )
+            progress(65, "누락 항목 비교 중")
             result = ReconciliationEngine().compare_lists(reference, target, plan.key_spec)
             attach_auto_summary(result, plan, "빠진 사람/누락자료 찾기")
-            output = Path(self.reconcile_output.get())
+            progress(88, "결과 엑셀 저장 중")
             ReportWriter().write_xlsx(result, output)
+            progress(100, "완료")
             return [output]
 
-        self._run("누락 확인", job, open_path=Path(self.reconcile_output.get()).parent)
+        self._run_with_progress("누락 확인", job, open_path=output.parent)
 
     def run_horizontal(self) -> None:
-        def job():
-            table = load_table(Path(self.horizontal_file.get()))
+        file_path = Path(self.horizontal_file.get())
+        manual_id_columns = split_columns(self.horizontal_id_columns.get())
+        output = Path(self.horizontal_output.get())
+
+        def job(progress):
+            progress(10, "원본 가로표 읽는 중")
+            table = load_table(file_path)
             engine = HorizontalTableEngine()
+            progress(35, "월/분기 열 찾는 중")
             detection = engine.detect(table)
-            id_columns = split_columns(self.horizontal_id_columns.get()) or [
+            id_columns = manual_id_columns or [
                 column for column in table.columns if column not in detection.value_columns
             ]
+            progress(55, "세로형 표로 변환 중")
             converted = engine.wide_to_long(table, id_columns=id_columns)
             result = JobResult(
                 result_frame=converted,
                 summary={"workflow": "월별 가로표 세로 변환", "row_count": len(converted)},
             )
-            output = Path(self.horizontal_output.get())
+            progress(88, "결과 엑셀 저장 중")
             ReportWriter().write_xlsx(result, output)
+            progress(100, "완료")
             return [output]
 
-        self._run("가로표 변환", job, open_path=Path(self.horizontal_output.get()).parent)
+        self._run_with_progress("가로표 변환", job, open_path=output.parent)
 
     def _run(self, label: str, job, open_path: Path | None = None) -> None:
         try:
@@ -1692,6 +1773,98 @@ class LocalApp:
             self.log_insert(f"[실패] {label}: {exc}")
             self.log_insert(traceback.format_exc())
             messagebox.showerror(APP_TITLE, str(exc))
+
+    def _run_with_progress(self, label: str, job, open_path: Path | None = None) -> None:
+        dialog = Toplevel(self.root)
+        dialog.title(f"{label} 진행률")
+        dialog.geometry("460x170")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.resizable(False, False)
+
+        stage_var = StringVar(value="작업 준비 중")
+        percent_var = StringVar(value="0%")
+        frame = ttk.Frame(dialog, padding=18)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text=label, font=("", 11, "bold")).pack(anchor="w")
+        ttk.Label(frame, textvariable=stage_var, foreground="#374151").pack(anchor="w", pady=(10, 6))
+
+        progress_bar = ttk.Progressbar(frame, maximum=100, mode="determinate")
+        progress_bar.pack(fill="x")
+        ttk.Label(frame, textvariable=percent_var).pack(anchor="e", pady=(4, 0))
+
+        events = queue.Queue()
+        finished = {"value": False}
+
+        def block_close() -> None:
+            stage_var.set("작업이 진행 중입니다. 완료될 때까지 기다려주세요.")
+
+        def report_progress(percent: int, message: str) -> None:
+            events.put(("progress", max(0, min(int(percent), 100)), str(message)))
+
+        def worker() -> None:
+            try:
+                outputs = job(report_progress)
+                events.put(("done", outputs))
+            except Exception as exc:
+                events.put(("error", exc, traceback.format_exc()))
+
+        def close_dialog() -> None:
+            try:
+                dialog.grab_release()
+            except Exception:
+                pass
+            dialog.destroy()
+
+        def handle_done(outputs) -> None:
+            finished["value"] = True
+            outputs = outputs or []
+            self.log_insert(f"[완료] {label}")
+            for output in outputs:
+                self.log_insert(f"  - {output}")
+            if outputs:
+                self.last_output_dir = Path(outputs[0]).parent
+            self.status.set(f"{label} 완료")
+            close_dialog()
+            if open_path:
+                self.open_folder(open_path)
+            messagebox.showinfo(APP_TITLE, f"{label}이 완료되었습니다.")
+
+        def handle_error(exc, formatted_traceback: str) -> None:
+            finished["value"] = True
+            self.status.set(f"{label} 실패")
+            self.log_insert(f"[실패] {label}: {exc}")
+            self.log_insert(formatted_traceback)
+            close_dialog()
+            messagebox.showerror(APP_TITLE, str(exc))
+
+        def poll_events() -> None:
+            try:
+                while True:
+                    event = events.get_nowait()
+                    event_type = event[0]
+                    if event_type == "progress":
+                        percent = int(event[1])
+                        message = str(event[2])
+                        progress_bar["value"] = percent
+                        stage_var.set(message)
+                        percent_var.set(f"{percent}%")
+                        self.status.set(f"{label} {percent}% - {message}")
+                    elif event_type == "done":
+                        handle_done(event[1])
+                        return
+                    elif event_type == "error":
+                        handle_error(event[1], str(event[2]))
+                        return
+            except queue.Empty:
+                pass
+            if not finished["value"]:
+                self.root.after(100, poll_events)
+
+        dialog.protocol("WM_DELETE_WINDOW", block_close)
+        self.status.set(f"{label} 실행 중...")
+        threading.Thread(target=worker, daemon=True).start()
+        poll_events()
 
     def log_insert(self, text: str) -> None:
         self.log.insert(END, text + "\n")

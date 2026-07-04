@@ -22,6 +22,10 @@ SHEET_MAPPING = "매핑표"
 SHEET_AUTO_EVIDENCE = "자동추천근거"
 SHEET_PRIVACY = "개인정보점검"
 
+WIDTH_SCAN_ROW_LIMIT = 200
+LARGE_RESULT_CELL_THRESHOLD = 200_000
+LARGE_RESULT_MARK_CELL_LIMIT = 20_000
+
 SEVERITY_LABELS = {
     "info": "안내",
     "warning": "확인",
@@ -115,7 +119,11 @@ class ReportWriter:
             )
             self._style_workbook(writer.book)
             if mark_result_cells:
-                self._mark_result_sheet(writer.book, result, privacy_records)
+                cell_count = len(result.result_frame) * max(len(result.result_frame.columns), 1)
+                max_marked_cells = (
+                    LARGE_RESULT_MARK_CELL_LIMIT if cell_count > LARGE_RESULT_CELL_THRESHOLD else None
+                )
+                self._mark_result_sheet(writer.book, result, privacy_records, max_marked_cells=max_marked_cells)
         return output_path
 
     def _review_frame(
@@ -353,13 +361,22 @@ class ReportWriter:
             rows.append({"항목": "결과 행 수", "값": len(result.result_frame)})
         return pd.DataFrame(rows)
 
-    def _mark_result_sheet(self, workbook, result: JobResult, privacy_records: list[dict[str, object]]) -> None:
+    def _mark_result_sheet(
+        self,
+        workbook,
+        result: JobResult,
+        privacy_records: list[dict[str, object]],
+        max_marked_cells: int | None = None,
+    ) -> None:
         if SHEET_RESULT not in workbook.sheetnames:
             return
         sheet = workbook[SHEET_RESULT]
         privacy_fill = PatternFill("solid", fgColor="FDE68A")
+        remaining_marks = max_marked_cells
 
         for record in privacy_records:
+            if remaining_marks == 0:
+                return
             column_index = self._find_column_index(sheet, str(record.get("컬럼명", "")))
             if column_index is None:
                 continue
@@ -369,9 +386,18 @@ class ReportWriter:
                 f"감지 건수: {record.get('감지 건수', '')}\n"
                 f"{record.get('조치 안내', '')}"
             )
-            self._mark_column(sheet, column_index, privacy_fill, message, max_cell_comments=30)
+            remaining_marks = self._mark_column(
+                sheet,
+                column_index,
+                privacy_fill,
+                message,
+                max_cell_comments=30,
+                remaining_marks=remaining_marks,
+            )
 
         for issue in result.issues:
+            if remaining_marks == 0:
+                return
             indices = self._matching_result_indices(result.result_frame, issue)
             columns_to_mark = self._issue_columns_to_mark(issue)
             message = (
@@ -386,25 +412,39 @@ class ReportWriter:
                     if columns_to_mark:
                         marked = False
                         for column_name in columns_to_mark:
+                            if remaining_marks == 0:
+                                return
                             column_index = self._find_column_index(sheet, column_name)
                             if column_index is None:
                                 continue
-                            self._mark_cell(sheet.cell(row=excel_row, column=column_index), issue_fill, message)
+                            if self._mark_cell(sheet.cell(row=excel_row, column=column_index), issue_fill, message):
+                                remaining_marks = self._decrement_mark_budget(remaining_marks)
                             marked = True
                         if marked:
                             continue
                     if issue.column_name:
                         column_index = self._find_column_index(sheet, issue.column_name)
                         if column_index is not None:
-                            self._mark_cell(sheet.cell(row=excel_row, column=column_index), issue_fill, message)
+                            if self._mark_cell(sheet.cell(row=excel_row, column=column_index), issue_fill, message):
+                                remaining_marks = self._decrement_mark_budget(remaining_marks)
                             continue
                     for cell in sheet[excel_row]:
-                        self._mark_cell(cell, issue_fill, message)
+                        if remaining_marks == 0:
+                            return
+                        if self._mark_cell(cell, issue_fill, message):
+                            remaining_marks = self._decrement_mark_budget(remaining_marks)
                 continue
             if issue.column_name:
                 column_index = self._find_column_index(sheet, issue.column_name)
                 if column_index is not None:
-                    self._mark_column(sheet, column_index, self._fill_for_issue(issue), message, max_cell_comments=10)
+                    remaining_marks = self._mark_column(
+                        sheet,
+                        column_index,
+                        self._fill_for_issue(issue),
+                        message,
+                        max_cell_comments=10,
+                        remaining_marks=remaining_marks,
+                    )
 
     def _fill_for_issue(self, issue) -> PatternFill:
         if issue.severity == "error":
@@ -446,22 +486,43 @@ class ReportWriter:
             counts[category] = counts.get(category, 0) + count
         return ", ".join(f"{category} {count}건" for category, count in counts.items())
 
-    def _mark_column(self, sheet, column_index: int, fill: PatternFill, message: str, max_cell_comments: int) -> None:
-        self._mark_cell(sheet.cell(row=1, column=column_index), fill, message)
+    def _mark_column(
+        self,
+        sheet,
+        column_index: int,
+        fill: PatternFill,
+        message: str,
+        max_cell_comments: int,
+        remaining_marks: int | None = None,
+    ) -> int | None:
+        if remaining_marks == 0:
+            return remaining_marks
+        if self._mark_cell(sheet.cell(row=1, column=column_index), fill, message):
+            remaining_marks = self._decrement_mark_budget(remaining_marks)
         comments_left = max_cell_comments
         for row_index in range(2, sheet.max_row + 1):
+            if remaining_marks == 0:
+                break
             cell = sheet.cell(row=row_index, column=column_index)
             if cell.value in (None, ""):
                 continue
             cell.fill = fill
+            remaining_marks = self._decrement_mark_budget(remaining_marks)
             if comments_left > 0 and cell.comment is None:
                 cell.comment = make_comment(message)
                 comments_left -= 1
+        return remaining_marks
 
-    def _mark_cell(self, cell, fill: PatternFill, message: str) -> None:
+    def _mark_cell(self, cell, fill: PatternFill, message: str) -> bool:
         cell.fill = fill
         if cell.comment is None:
             cell.comment = make_comment(message)
+        return True
+
+    def _decrement_mark_budget(self, remaining_marks: int | None) -> int | None:
+        if remaining_marks is None:
+            return None
+        return max(remaining_marks - 1, 0)
 
     def _find_column_index(self, sheet, column_name: str) -> int | None:
         for cell in sheet[1]:
@@ -480,11 +541,10 @@ class ReportWriter:
                 cell.fill = header_fill
                 cell.font = header_font
                 cell.alignment = Alignment(horizontal="center", vertical="center")
-            for column_cells in sheet.columns:
+            for column_cells in sheet.iter_cols(max_row=min(sheet.max_row, WIDTH_SCAN_ROW_LIMIT + 1)):
                 max_length = 0
                 column_letter = get_column_letter(column_cells[0].column)
                 for cell in column_cells:
                     value = "" if cell.value is None else str(cell.value)
                     max_length = max(max_length, min(len(value), 42))
-                    cell.alignment = Alignment(vertical="center", wrap_text=True)
                 sheet.column_dimensions[column_letter].width = max(10, min(max_length + 2, 44))

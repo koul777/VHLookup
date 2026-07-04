@@ -14,29 +14,29 @@ class ExcelLoader:
     csv_suffixes = {".csv"}
     encodings = ("utf-8-sig", "utf-8", "cp949", "euc-kr")
 
-    def load(self, path: str | Path) -> WorkbookSource:
+    def load(self, path: str | Path, max_rows: int | None = None) -> WorkbookSource:
         file_path = Path(path)
         if not file_path.exists():
             raise FileNotFoundError(file_path)
         suffix = file_path.suffix.lower()
         if suffix in self.excel_suffixes:
-            return self._load_excel(file_path)
+            return self._load_excel(file_path, max_rows=max_rows)
         if suffix in self.csv_suffixes:
-            return self._load_csv(file_path)
+            return self._load_csv(file_path, max_rows=max_rows)
         raise ValueError(f"Unsupported file type: {file_path.suffix}")
 
-    def _load_excel(self, path: Path) -> WorkbookSource:
-        sheets = pd.read_excel(path, sheet_name=None, header=None, dtype=object)
+    def _load_excel(self, path: Path, max_rows: int | None = None) -> WorkbookSource:
+        sheets = pd.read_excel(path, sheet_name=None, header=None, dtype=object, nrows=max_rows)
         return WorkbookSource(
             path=path,
             sheets=tuple(SheetData(name=name, frame=frame) for name, frame in sheets.items()),
         )
 
-    def _load_csv(self, path: Path) -> WorkbookSource:
+    def _load_csv(self, path: Path, max_rows: int | None = None) -> WorkbookSource:
         last_error: Exception | None = None
         for encoding in self.encodings:
             try:
-                frame = pd.read_csv(path, header=None, dtype=object, encoding=encoding)
+                frame = pd.read_csv(path, header=None, dtype=object, encoding=encoding, nrows=max_rows)
                 return WorkbookSource(path=path, sheets=(SheetData(name=path.stem, frame=frame),))
             except UnicodeDecodeError as exc:
                 last_error = exc

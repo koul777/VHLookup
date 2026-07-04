@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from itertools import combinations
+from typing import Any
 
 import pandas as pd
 
@@ -11,6 +13,17 @@ from vhlookup_core.normalization import normalize_header, normalize_key_parts
 
 _IDENTIFIER_KEY_HINTS = ("사번", "직원번호", "직원id", "employeeid", "empid", "기관코드", "orgcode")
 _PERIOD_KEY_HINTS = ("지급월", "기준월", "귀속월", "월", "날짜", "일자", "date", "month")
+KEY_SCORE_ROW_LIMIT = 1000
+
+
+@dataclass(frozen=True)
+class _ColumnProfile:
+    exact_values: set[str]
+    loose_values: set[str]
+    exact_unique_count: int
+    loose_unique_count: int
+    completeness: float
+    uniqueness: float
 
 
 class KeyRecommender:
@@ -23,19 +36,43 @@ class KeyRecommender:
         target: pd.DataFrame,
         max_composite_size: int = 2,
         limit: int = 5,
+        score_row_limit: int = KEY_SCORE_ROW_LIMIT,
     ) -> list[KeyCandidate]:
+        reference_sample = reference.head(score_row_limit)
+        target_sample = target.head(score_row_limit)
         mapping = self.mapper.map_columns(list(target.columns), list(reference.columns), threshold=0.80)
         pairs = [
             (reference_column, target_column)
             for reference_column, target_column in mapping.target_to_source.items()
         ]
-        pairs = self._with_data_overlap_pairs(reference, target, pairs)
+        pairs = self._with_data_overlap_pairs(reference_sample, target_sample, pairs)
         candidates: list[KeyCandidate] = []
-        for size in range(1, min(max_composite_size, len(pairs)) + 1):
-            for combo in combinations(pairs, size):
+
+        single_candidates: list[tuple[tuple[str, str], KeyCandidate]] = []
+        for pair in pairs:
+            candidate = self._score(reference_sample, target_sample, (pair[0],), (pair[1],))
+            candidates.append(candidate)
+            single_candidates.append((pair, candidate))
+
+        best_single = max((candidate for _pair, candidate in single_candidates), key=lambda item: item.score, default=None)
+        if (
+            best_single is not None
+            and best_single.score >= 0.98
+            and best_single.duplicate_ratio_reference <= 0.001
+            and best_single.duplicate_ratio_target <= 0.001
+        ):
+            return [best_single]
+
+        composite_pairs = [
+            pair
+            for pair, candidate in sorted(single_candidates, key=lambda item: item[1].score, reverse=True)
+            if candidate.score >= 0.45
+        ][:12]
+        for size in range(2, min(max_composite_size, len(composite_pairs)) + 1):
+            for combo in combinations(composite_pairs, size):
                 reference_cols = tuple(item[0] for item in combo)
                 target_cols = tuple(item[1] for item in combo)
-                candidates.append(self._score(reference, target, reference_cols, target_cols))
+                candidates.append(self._score(reference_sample, target_sample, reference_cols, target_cols))
         return sorted(candidates, key=lambda item: item.score, reverse=True)[:limit]
 
     def _with_data_overlap_pairs(
@@ -47,6 +84,8 @@ class KeyRecommender:
         seen = set(name_pairs)
         used_reference_columns = {reference_column for reference_column, _target_column in name_pairs}
         used_target_columns = {target_column for _reference_column, target_column in name_pairs}
+        reference_profiles = self._column_profiles(reference)
+        target_profiles = self._column_profiles(target)
         data_pairs: list[tuple[float, tuple[str, str]]] = []
         for reference_column in reference.columns:
             if reference_column in used_reference_columns:
@@ -57,7 +96,10 @@ class KeyRecommender:
                 pair = (reference_column, target_column)
                 if pair in seen:
                     continue
-                score = self._single_column_data_score(reference[reference_column], target[target_column])
+                score = self._single_column_data_score(
+                    reference_profiles[reference_column],
+                    target_profiles[target_column],
+                )
                 if score >= 0.75:
                     data_pairs.append((score, pair))
 
@@ -74,35 +116,36 @@ class KeyRecommender:
                 break
         return ordered_pairs
 
-    def _single_column_data_score(self, reference: pd.Series, target: pd.Series) -> float:
-        reference_keys = reference.to_frame().apply(lambda row: normalize_key_parts(row.tolist()), axis=1)
-        target_keys = target.to_frame().apply(lambda row: normalize_key_parts(row.tolist()), axis=1)
-        loose_reference_keys = reference.to_frame().apply(
-            lambda row: normalize_key_parts(row.tolist(), "loose_numeric"),
-            axis=1,
-        )
-        loose_target_keys = target.to_frame().apply(
-            lambda row: normalize_key_parts(row.tolist(), "loose_numeric"),
-            axis=1,
+    def _column_profiles(self, frame: pd.DataFrame) -> dict[Any, _ColumnProfile]:
+        return {column: self._column_profile(frame[column]) for column in frame.columns}
+
+    def _column_profile(self, series: pd.Series) -> _ColumnProfile:
+        exact = series.map(lambda value: normalize_key_parts([value]))
+        loose = series.map(lambda value: normalize_key_parts([value], "loose_numeric"))
+        exact_non_blank = exact[exact != ""]
+        loose_non_blank = loose[loose != ""]
+        completeness = len(exact_non_blank) / max(len(series), 1)
+        uniqueness = 1 - duplicate_ratio(exact_non_blank)
+        return _ColumnProfile(
+            exact_values=set(exact_non_blank),
+            loose_values=set(loose_non_blank),
+            exact_unique_count=int(exact_non_blank.nunique()),
+            loose_unique_count=int(loose_non_blank.nunique()),
+            completeness=completeness,
+            uniqueness=uniqueness,
         )
 
-        reference_non_blank = reference_keys[reference_keys != ""]
-        target_non_blank = target_keys[target_keys != ""]
-        loose_reference_non_blank = loose_reference_keys[loose_reference_keys != ""]
-        loose_target_non_blank = loose_target_keys[loose_target_keys != ""]
-        if reference_non_blank.empty or target_non_blank.empty:
+    def _single_column_data_score(self, reference: _ColumnProfile, target: _ColumnProfile) -> float:
+        if not reference.exact_values or not target.exact_values:
             return 0.0
 
-        exact_overlap = len(set(reference_non_blank).intersection(set(target_non_blank)))
-        exact_denominator = max(min(reference_non_blank.nunique(), target_non_blank.nunique()), 1)
-        loose_overlap = len(set(loose_reference_non_blank).intersection(set(loose_target_non_blank)))
-        loose_denominator = max(min(loose_reference_non_blank.nunique(), loose_target_non_blank.nunique()), 1)
+        exact_overlap = len(reference.exact_values.intersection(target.exact_values))
+        exact_denominator = max(min(reference.exact_unique_count, target.exact_unique_count), 1)
+        loose_overlap = len(reference.loose_values.intersection(target.loose_values))
+        loose_denominator = max(min(reference.loose_unique_count, target.loose_unique_count), 1)
         overlap_ratio = max(exact_overlap / exact_denominator, (loose_overlap / loose_denominator) * 0.92)
-        completeness = min(
-            len(reference_non_blank) / max(len(reference), 1),
-            len(target_non_blank) / max(len(target), 1),
-        )
-        uniqueness = 1 - max(duplicate_ratio(reference_non_blank), duplicate_ratio(target_non_blank))
+        completeness = min(reference.completeness, target.completeness)
+        uniqueness = min(reference.uniqueness, target.uniqueness)
         return 0.55 * overlap_ratio + 0.20 * completeness + 0.25 * uniqueness
 
     def _score(

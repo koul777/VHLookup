@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,13 @@ from vhlookup_core.loader import ExcelLoader
 from vhlookup_core.mapper import ColumnMapper
 from vhlookup_core.normalization import display_value, is_blank, normalize_header, normalize_key_parts
 from vhlookup_core.sheet import SheetDetector
+
+
+COLUMN_SCORE_ROW_LIMIT = 1000
+WIDTH_SCAN_ROW_LIMIT = 200
+LARGE_DIFF_MARK_CELL_LIMIT = 20_000
+MAX_DIFF_COMMENT_COUNT = 20_000
+ProgressCallback = Callable[[int, str], None]
 
 
 @dataclass
@@ -59,12 +67,17 @@ class WorkbookDiffEngine:
         scan_rows: int | str = 30,
         column_mapping_override: dict[str, str] | None = None,
         key_columns: tuple[str, ...] | None = None,
+        max_rows_per_file: int | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> WorkbookDiffResult:
         before_path = Path(before_file)
         after_path = Path(after_file)
-        before_frame, before_sheet = self._load_table(before_path, scan_rows)
-        after_frame, after_sheet = self._load_table(after_path, scan_rows)
+        self._emit_progress(progress_callback, 8, "수정 전 파일 읽는 중")
+        before_frame, before_sheet = self._load_table(before_path, scan_rows, max_rows=max_rows_per_file)
+        self._emit_progress(progress_callback, 22, "수정 후 파일 읽는 중")
+        after_frame, after_sheet = self._load_table(after_path, scan_rows, max_rows=max_rows_per_file)
 
+        self._emit_progress(progress_callback, 38, "전/후 컬럼 매칭 중")
         before_to_after = self.suggest_column_mapping(before_frame, after_frame)
         if column_mapping_override:
             before_to_after.update(
@@ -92,6 +105,7 @@ class WorkbookDiffEngine:
 
         if resolved_key_columns:
             key_normalization = self._infer_key_normalization(before_frame, after_aligned, resolved_key_columns)
+            self._emit_progress(progress_callback, 58, "키 기준으로 행과 셀 비교 중")
             self._compare_by_key(
                 before_frame,
                 after_frame,
@@ -106,6 +120,7 @@ class WorkbookDiffEngine:
             )
             compare_basis = "키 컬럼: " + ", ".join(resolved_key_columns)
         else:
+            self._emit_progress(progress_callback, 58, "행 순서 기준으로 셀 비교 중")
             self._compare_by_position(
                 before_frame,
                 after_frame,
@@ -152,6 +167,7 @@ class WorkbookDiffEngine:
             "before_only_column_count": len(before_only_columns),
             "after_only_column_count": len(after_only_columns),
         }
+        self._emit_progress(progress_callback, 82, "비교 결과 정리 중")
         return WorkbookDiffResult(
             before_frame=before_frame,
             after_frame=after_frame,
@@ -163,12 +179,17 @@ class WorkbookDiffEngine:
             before_to_after=before_to_after,
         )
 
+    def _emit_progress(self, callback: ProgressCallback | None, percent: int, message: str) -> None:
+        if callback is None:
+            return
+        callback(max(0, min(int(percent), 100)), message)
+
     def suggest_column_mapping(self, before_frame: pd.DataFrame, after_frame: pd.DataFrame) -> dict[str, str]:
         column_mapping = self.mapper.map_columns(list(after_frame.columns), list(before_frame.columns), threshold=0.72)
         return self._with_data_overlap_column_mapping(before_frame, after_frame, dict(column_mapping.target_to_source))
 
-    def _load_table(self, path: Path, scan_rows: int | str) -> tuple[pd.DataFrame, str]:
-        source = self.loader.load(path)
+    def _load_table(self, path: Path, scan_rows: int | str, max_rows: int | None = None) -> tuple[pd.DataFrame, str]:
+        source = self.loader.load(path, max_rows=max_rows)
         sheet = self.sheet_detector.select(source)
         detection = self.header_detector.detect(sheet, scan_rows=scan_rows)
         return self.header_detector.apply(sheet, detection), sheet.name
@@ -227,16 +248,18 @@ class WorkbookDiffEngine:
         after_frame: pd.DataFrame,
         mapping: dict[str, str],
     ) -> dict[str, str]:
+        before_sample = before_frame.head(COLUMN_SCORE_ROW_LIMIT)
+        after_sample = after_frame.head(COLUMN_SCORE_ROW_LIMIT)
         used_after_columns = set(mapping.values())
-        for before_column in before_frame.columns:
+        for before_column in before_sample.columns:
             if before_column in mapping:
                 continue
             best_after_column = ""
             best_score = 0.0
-            for after_column in after_frame.columns:
+            for after_column in after_sample.columns:
                 if after_column in used_after_columns:
                     continue
-                score = self._column_data_score(before_frame[before_column], after_frame[after_column])
+                score = self._column_data_score(before_sample[before_column], after_sample[after_column])
                 if score > best_score:
                     best_score = score
                     best_after_column = str(after_column)
@@ -305,13 +328,14 @@ class WorkbookDiffEngine:
                         "후 파일 셀": f"{after_column}{int(after_index) + 2}",
                     }
                 )
-                comments.append(
+                self._append_comment(
+                    comments,
                     CellComment(
                         row_index=int(after_index),
                         column_name=after_column,
                         message="전 파일에 없던 행입니다.",
                         fill="BFDBFE",
-                    )
+                    ),
                 )
                 continue
             if after_index is None:
@@ -369,13 +393,14 @@ class WorkbookDiffEngine:
                         "후 파일 셀": f"{after_column}{index + 2}",
                     }
                 )
-                comments.append(
+                self._append_comment(
+                    comments,
                     CellComment(
                         row_index=index,
                         column_name=after_column,
                         message="전 파일에 없던 행입니다.",
                         fill="BFDBFE",
-                    )
+                    ),
                 )
                 continue
             if index >= len(after_frame):
@@ -435,13 +460,19 @@ class WorkbookDiffEngine:
                     "후 파일 셀": cell_address,
                 }
             )
-            comments.append(
+            self._append_comment(
+                comments,
                 CellComment(
                     row_index=after_index,
                     column_name=after_column,
                     message=f"전 값: {before_text}\n후 값: {after_text}",
-                )
+                ),
             )
+
+    def _append_comment(self, comments: list[CellComment], comment: CellComment) -> None:
+        if len(comments) >= MAX_DIFF_COMMENT_COUNT:
+            return
+        comments.append(comment)
 
     def _same_value(self, before_value: object, after_value: object) -> bool:
         if is_blank(before_value) and is_blank(after_value):
@@ -686,21 +717,28 @@ class WorkbookDiffReportWriter:
             return
         sheet = workbook["후파일_메모"]
         column_positions = {cell.value: cell.column for cell in sheet[1]}
+        remaining_marks = self._initial_mark_budget(sheet)
         for comment in result.comments:
+            if remaining_marks == 0:
+                return
             column = column_positions.get(comment.column_name)
             if not column:
                 continue
             cell = sheet.cell(row=comment.row_index + 2, column=column)
             cell.comment = make_comment(comment.message)
             cell.fill = PatternFill("solid", fgColor=comment.fill)
+            remaining_marks = self._decrement_mark_budget(remaining_marks)
 
     def _apply_row_highlights(self, workbook, result: WorkbookDiffResult) -> None:
         if "후파일_메모" not in workbook.sheetnames:
             return
         sheet = workbook["후파일_메모"]
         data_column_count = sheet.max_column
+        remaining_marks = self._initial_mark_budget(sheet)
 
         for _, row_diff in result.row_frame.iterrows():
+            if remaining_marks == 0:
+                return
             status = str(row_diff.get("상태", ""))
             if status != "전 파일에 없던 행":
                 continue
@@ -716,9 +754,12 @@ class WorkbookDiffReportWriter:
                     self.ADDED_ROW_FILL,
                     "전 파일에 없던 행입니다. 후 파일에서 새로 추가된 행인지 확인하세요.",
                 )
+                remaining_marks = self._decrement_mark_budget(remaining_marks, data_column_count)
 
         appended_row_number = len(result.after_frame) + 2
         for _, row_diff in result.row_frame.iterrows():
+            if remaining_marks == 0:
+                return
             status = str(row_diff.get("상태", ""))
             if status != "후 파일에 행 없음":
                 continue
@@ -729,6 +770,7 @@ class WorkbookDiffReportWriter:
                 self.MISSING_ROW_FILL,
                 "후 파일에서 사라진 행입니다. 전 파일에는 있었지만 후 파일에는 없습니다.",
             )
+            remaining_marks = self._decrement_mark_budget(remaining_marks, data_column_count)
             appended_row_number += 1
 
     def _mark_row(self, sheet, row_number: int, column_count: int, fill: str, message: str) -> None:
@@ -738,6 +780,15 @@ class WorkbookDiffReportWriter:
         first_cell = sheet.cell(row=row_number, column=1)
         if first_cell.comment is None:
             first_cell.comment = make_comment(message)
+
+    def _initial_mark_budget(self, sheet) -> int | None:
+        cell_count = sheet.max_row * max(sheet.max_column, 1)
+        return LARGE_DIFF_MARK_CELL_LIMIT if cell_count > LARGE_DIFF_MARK_CELL_LIMIT else None
+
+    def _decrement_mark_budget(self, remaining_marks: int | None, used_cells: int = 1) -> int | None:
+        if remaining_marks is None:
+            return None
+        return max(remaining_marks - used_cells, 0)
 
     def _style_workbook(self, workbook) -> None:
         header_fill = PatternFill("solid", fgColor="1F6F5F")
@@ -750,11 +801,10 @@ class WorkbookDiffReportWriter:
                 cell.fill = header_fill
                 cell.font = header_font
                 cell.alignment = Alignment(horizontal="center", vertical="center")
-            for column_cells in sheet.columns:
+            for column_cells in sheet.iter_cols(max_row=min(sheet.max_row, WIDTH_SCAN_ROW_LIMIT + 1)):
                 max_length = 0
                 column_letter = get_column_letter(column_cells[0].column)
                 for cell in column_cells:
                     value = "" if cell.value is None else str(cell.value)
                     max_length = max(max_length, min(len(value), 48))
-                    cell.alignment = Alignment(vertical="center", wrap_text=True)
                 sheet.column_dimensions[column_letter].width = max(10, min(max_length + 2, 50))
