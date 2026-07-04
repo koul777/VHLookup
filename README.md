@@ -2,10 +2,12 @@
 
 공공기관, 교육청, 학교, HR, 총무, 예산 담당자가 반복하는 엑셀 수합, 대조, 검증, 요약 업무를 로컬 PC에서 처리하는 Windows용 업무 자동화 도구입니다.
 
+현재 버전: `v1.1`
+
 비개발자 사용자는 Python이나 개발 환경을 몰라도 됩니다. 아래 Windows 실행파일을 내려받아 더블클릭해서 사용합니다.
 
-- [최신 Windows 실행파일 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_pivot.exe)
-- 직접 다운로드가 안 되면 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 `VHLookupLocal_pivot.exe`를 내려받습니다.
+- [VHLookup Local v1.1 Windows 실행파일 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_pivot_v1.1.exe)
+- 직접 다운로드가 안 되면 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 `VHLookupLocal_pivot_v1.1.exe`를 내려받습니다.
 
 GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을 포함하지 않습니다. exe 파일은 GitHub Release 첨부파일로 배포합니다.
 
@@ -15,17 +17,17 @@ Windows 또는 Microsoft Edge에서 `일반적으로 다운로드되지 않음`,
 
 - 공유하거나 안내할 때, Microsoft 피드백이나 오탐 신고를 할 때는 긴 `release-assets.githubusercontent.com/...` 주소를 사용하지 않습니다. 이 주소는 GitHub가 다운로드 순간에 발급하는 임시 주소라 시간이 지나면 만료됩니다.
 - 공식 다운로드 주소는 위의 `최신 Windows 실행파일 다운로드` 또는 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)입니다.
-- 내려받은 파일명이 `VHLookupLocal_pivot.exe`인지 확인합니다.
+- 내려받은 파일명이 `VHLookupLocal_pivot_v1.1.exe`인지 확인합니다.
 - 파일을 실행하기 전에 PowerShell에서 SHA256을 확인할 수 있습니다.
 
 ```powershell
-Get-FileHash .\VHLookupLocal_pivot.exe -Algorithm SHA256
+Get-FileHash .\VHLookupLocal_pivot_v1.1.exe -Algorithm SHA256
 ```
 
 현재 Release 기준 SHA256은 아래와 같습니다.
 
 ```text
-A56EA8716B13E89E9C86901EE05187A2377ECF40A4B0DE893533883A5FAA5C27
+1CBA4935CB4D8784D6554D7578416AD4840175A2572E546FD08DF8D374C0328D
 ```
 
 공식 Release에서 받은 파일이고 SHA256이 일치하면 Edge 다운로드 목록에서 `유지` 또는 `그래도 유지`를 선택할 수 있습니다. 실행 시 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다.
@@ -62,7 +64,7 @@ Edge에서 다운로드가 막히는 경우 아래 화면처럼 진행합니다.
 소스에서 직접 실행 파일을 만들려면 `build_exe.bat`을 실행합니다. 빌드가 끝나면 아래 위치에 exe가 생성됩니다.
 
 ```text
-dist\VHLookupLocal_pivot.exe
+dist\VHLookupLocal_pivot_v1.1.exe
 ```
 
 ## 핵심 원칙
@@ -146,7 +148,7 @@ dist\VHLookupLocal_pivot.exe
 
 ## 사용 순서
 
-1. 전달받은 `VHLookupLocal_pivot.exe`를 더블클릭합니다. 직접 빌드한 경우에는 `dist\VHLookupLocal_pivot.exe`를 실행합니다.
+1. 전달받은 `VHLookupLocal_pivot_v1.1.exe`를 더블클릭합니다. 직접 빌드한 경우에는 `dist\VHLookupLocal_pivot_v1.1.exe`를 실행합니다.
 2. 실행할 작업 버튼을 선택합니다.
 3. 파일을 올립니다.
 4. 미리보기에서 예상 결과를 확인합니다.
@@ -310,7 +312,7 @@ build_exe.bat
 빌드가 끝나면 아래 파일이 생성됩니다.
 
 ```text
-dist\VHLookupLocal_pivot.exe
+dist\VHLookupLocal_pivot_v1.1.exe
 ```
 
 ## 테스트
@@ -344,7 +346,7 @@ python -m vhlookup_cli.main reconcile --reference expected.xlsx --target receive
 python -m vhlookup_cli.main horizontal --file monthly.xlsx --out monthly_long.xlsx
 ```
 
-비개발자용 기본 사용은 CLI가 아니라 배포용 `VHLookupLocal_pivot.exe` 실행입니다.
+비개발자용 기본 사용은 CLI가 아니라 배포용 `VHLookupLocal_pivot_v1.1.exe` 실행입니다.
 
 ## 관련 문서
 

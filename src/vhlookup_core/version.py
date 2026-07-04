@@ -1,0 +1,4 @@
+APP_VERSION = "v1.1"
+APP_NAME = "VHLookup Local"
+APP_DISPLAY_NAME = f"{APP_NAME} {APP_VERSION}"
+EXE_BASENAME = f"VHLookupLocal_pivot_{APP_VERSION}"

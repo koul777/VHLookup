@@ -10,6 +10,8 @@ if errorlevel 1 (
 )
 
 set BUILD_PY=%CD%\.build_venv\Scripts\python.exe
+set APP_VERSION=v1.1
+set EXE_NAME=VHLookupLocal_pivot_%APP_VERSION%
 if not exist "%BUILD_PY%" (
   echo Creating clean build environment...
   python -m venv "%CD%\.build_venv"
@@ -29,13 +31,13 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Building VHLookupLocal_pivot.exe...
+echo Building %EXE_NAME%.exe...
 "%BUILD_PY%" -m PyInstaller ^
   --noconfirm ^
   --clean ^
   --windowed ^
   --onefile ^
-  --name VHLookupLocal_pivot ^
+  --name %EXE_NAME% ^
   --paths "%CD%\src" ^
   --add-data "%CD%\samples;samples" ^
   --exclude-module PySide6 ^
@@ -61,6 +63,6 @@ if errorlevel 1 (
 
 echo.
 echo Done:
-echo %CD%\dist\VHLookupLocal_pivot.exe
+echo %CD%\dist\%EXE_NAME%.exe
 pause
 exit /b 0

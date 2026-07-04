@@ -16,6 +16,7 @@ from openpyxl.utils import get_column_letter
 from vhlookup_core import (
     AutoLookupPlanner,
     AdminWorkbookTools,
+    APP_DISPLAY_NAME,
     ConsolidationEngine,
     ExcelLoader,
     HeaderDetector,
@@ -34,7 +35,7 @@ from vhlookup_core.models import JobResult
 from vhlookup_core.reconciliation import ReconciliationEngine
 
 
-APP_TITLE = "VHLookup Local"
+APP_TITLE = APP_DISPLAY_NAME
 
 
 def app_base_dir() -> Path:
@@ -328,7 +329,7 @@ class LocalApp:
 
         header = ttk.Frame(top, padding=(18, 16), style="Header.TFrame")
         header.pack(fill="x")
-        ttk.Label(header, text="VHLookup Local", style="HeaderTitle.TLabel").pack(anchor="w")
+        ttk.Label(header, text=APP_DISPLAY_NAME, style="HeaderTitle.TLabel").pack(anchor="w")
         ttk.Label(
             header,
             text="엑셀 수합, 대조, 검증, 피벗 요약을 로컬 PC에서 처리합니다. 원본 파일은 수정하지 않습니다.",
