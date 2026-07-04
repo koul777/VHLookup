@@ -1,10 +1,10 @@
-# VHLookup Local v1.1
+# VHLookup Local V1.1
 
 공공기관, 교육청, 학교, HR, 총무, 예산 담당자가 반복하는 엑셀 수합, 대조, 검증, 요약 업무를 로컬 PC에서 처리하는 Windows용 업무 자동화 도구입니다.
 
 비개발자 사용자는 Python이나 개발 환경을 몰라도 됩니다. 아래 Windows 실행파일을 내려받아 더블클릭해서 사용합니다.
 
-- [VHLookup Local v1.1 Windows 실행파일 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_pivot_v1.1.exe)
+- [VHLookup Local V1.1 Windows 실행파일 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_pivot_v1.1.exe)
 - 직접 다운로드가 안 되면 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 `VHLookupLocal_pivot_v1.1.exe`를 내려받습니다.
 
 GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을 포함하지 않습니다. exe 파일은 GitHub Release 첨부파일로 배포합니다.
@@ -25,7 +25,7 @@ Get-FileHash .\VHLookupLocal_pivot_v1.1.exe -Algorithm SHA256
 현재 Release 기준 SHA256은 아래와 같습니다.
 
 ```text
-1CBA4935CB4D8784D6554D7578416AD4840175A2572E546FD08DF8D374C0328D
+3AD2130D70DA6782586A60C2E9A6196D26F5D3044B1DF3335E9BABE7FE6975BD
 ```
 
 공식 Release에서 받은 파일이고 SHA256이 일치하면 Edge 다운로드 목록에서 `유지` 또는 `그래도 유지`를 선택할 수 있습니다. 실행 시 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다.

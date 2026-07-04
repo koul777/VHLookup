@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from vhlookup_core import (
+    APP_DISPLAY_NAME,
     ConsolidationEngine,
     ExcelLoader,
     HeaderDetector,
@@ -74,7 +75,7 @@ QWidget = qt["QWidget"]
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("VLOOKUP/HLOOKUP Killer Local")
+        self.setWindowTitle(APP_DISPLAY_NAME)
         self.resize(1180, 760)
         self.loader = ExcelLoader()
         self.header_detector = HeaderDetector()
@@ -109,7 +110,7 @@ class MainWindow(QMainWindow):
 
         root = QWidget()
         layout = QVBoxLayout(root)
-        header = QLabel("공공기관 엑셀 수합, 명단 대조, 누락 확인을 내 PC에서 끝냅니다.")
+        header = QLabel(f"{APP_DISPLAY_NAME}\n공공기관 엑셀 수합, 명단 대조, 누락 확인을 내 PC에서 끝냅니다.")
         header.setObjectName("heroLabel")
         layout.addWidget(header)
         layout.addWidget(self.mode_select)

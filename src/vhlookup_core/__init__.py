@@ -27,13 +27,14 @@ from vhlookup_core.sheet import SheetDetector
 from vhlookup_core.template_catalog import TemplateCatalogWriter, template_catalog_frame, template_usage_frame
 from vhlookup_core.templates import WorkflowTemplate, all_templates, default_template, get_template, templates_for_mode
 from vhlookup_core.validation import ValidationEngine, ValidationProfile
-from vhlookup_core.version import APP_DISPLAY_NAME, APP_NAME, APP_VERSION, EXE_BASENAME
+from vhlookup_core.version import APP_DISPLAY_NAME, APP_NAME, APP_VERSION, APP_VERSION_DISPLAY, EXE_BASENAME
 from vhlookup_core.workbook_diff import WorkbookDiffEngine, WorkbookDiffReportWriter, WorkbookDiffResult
 
 __all__ = [
     "APP_DISPLAY_NAME",
     "APP_NAME",
     "APP_VERSION",
+    "APP_VERSION_DISPLAY",
     "EXE_BASENAME",
     "WorkflowTemplate",
     "WorkbookDiffEngine",
