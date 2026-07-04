@@ -259,6 +259,7 @@ class LocalApp:
         style.configure("ActionDesc.TLabel", background="#FFFFFF", foreground="#526173", font=("", 9))
         style.configure("Status.TLabel", background="#F4F7FA", foreground="#17324D", font=("", 9, "bold"))
         style.configure("Credit.TLabel", background="#F4F7FA", foreground="#6B7280", font=("", 8))
+        style.configure("Footer.TButton", padding=(10, 4), font=("", 9), anchor="center")
         style.configure("TButton", padding=(10, 7), font=("", 9))
         style.configure("Action.TButton", padding=(12, 8), font=("", 9, "bold"))
         style.map("Action.TButton", background=[("active", "#DCEFEA")])
@@ -339,7 +340,12 @@ class LocalApp:
         bottom.pack(fill="x", pady=(8, 0))
         ttk.Label(bottom, textvariable=self.status, style="Status.TLabel").pack(side="left")
         ttk.Label(bottom, text="By. HRKIM", style="Credit.TLabel").pack(side="right", padx=(12, 0))
-        ttk.Button(bottom, text="최근 저장 폴더 열기", command=lambda: self.open_folder(self.last_output_dir)).pack(side="right")
+        ttk.Button(
+            bottom,
+            text="최근 저장 폴더 열기",
+            command=lambda: self.open_folder(self.last_output_dir),
+            style="Footer.TButton",
+        ).pack(side="right")
 
     def _action_button(self, parent, title: str, description: str, command) -> None:
         row = ttk.Frame(parent, padding=(8, 7), style="Action.TFrame")

@@ -25,10 +25,10 @@ Get-FileHash .\VHLookupLocal_pivot_v1.2.exe -Algorithm SHA256
 현재 `v1.2` Release 첨부파일 기준 SHA256은 아래와 같습니다.
 
 ```text
-8F8A3A3646A3016B2EF7D6EA493F87F7691349E0DEB67916927B7E3F28D028A3
+0CA6EE6F01A4BFFD96D212063B1C07AC09525CEBBD92535398E6454B8B024652
 ```
 
-현재 `v1.2` Release 첨부파일 크기는 `37,739,205 bytes`입니다.
+현재 `v1.2` Release 첨부파일 크기는 `37,738,707 bytes`입니다.
 
 공식 Release에서 받은 파일이고 SHA256이 일치하면 Edge 다운로드 목록에서 `유지` 또는 `그래도 유지`를 선택할 수 있습니다. 실행 시 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다.
 
@@ -44,20 +44,53 @@ Edge에서 다운로드가 막히는 경우 아래 화면처럼 진행합니다.
 
 ![VHLookup Local 첫 화면](docs/assets/vhlookup-local-main.jpg)
 
-## 기능별 엑셀 캡처
+## 기능별 전/후 엑셀 캡처
 
-각 기능이 만드는 결과 엑셀의 대표 화면입니다. 샘플 결과는 `run_demo.bat` 또는 `python scripts\run_public_admin_demo.py` 실행 후 `demo_output` 폴더에서 확인할 수 있습니다.
+각 기능이 실제로 어떤 값을 어떻게 바꾸는지 `실행 전 => 실행 후` 형태로 비교했습니다. 샘플 결과는 `run_demo.bat` 또는 `python scripts\run_public_admin_demo.py` 실행 후 `demo_output` 폴더에서 확인할 수 있습니다.
 
-| 기능 | 의미 | 결과 예시 |
-| --- | --- | --- |
-| 1. 개인정보 마스킹 | 이름, 연락처, 계좌, 주소, 생년월일 같은 개인정보를 원본 값 없이 가립니다. | ![개인정보 마스킹 결과](docs/images/feature_01_privacy_masking.png) |
-| 2. 분류별 시트 나누기 | 한 파일을 부서/기관/상태 같은 기준별 시트로 나눕니다. | ![분류별 시트 나누기 결과](docs/images/feature_02_split_sheets.png) |
-| 3. 엑셀/CSV 파일 여러 개 합치기 | 여러 제출 파일을 행 또는 열 기준으로 합치고 자동 매칭 근거를 남깁니다. | ![파일 합치기 결과](docs/images/feature_03_merge_files.png) |
-| 4. 전/후 파일 검증 | 수정 전/후 파일의 변경 셀, 추가 행, 빠진 행을 색과 메모로 표시합니다. | ![전후 파일 검증 결과](docs/images/feature_04_before_after_validation.png) |
-| 5. 월별표 목록형 변환 | `1월`, `2월`처럼 옆으로 펼쳐진 월별 열을 `열 기준`, `값` 형태로 풉니다. | ![월별표 목록형 변환 결과](docs/images/feature_05_monthly_list.png) |
-| 6. 피벗 요약표 만들기 | 부서/월/상태 같은 기준별 건수, 합계, 평균 요약표를 만듭니다. | ![피벗 요약표 결과](docs/images/feature_06_pivot_summary.png) |
+### 1. 개인정보 마스킹
+
+원본 개인정보가 결과 엑셀에서는 값 노출 없이 가려집니다.
+
+![개인정보 마스킹 전후 비교](docs/images/feature_01_privacy_masking.png)
+
+### 2. 분류별 시트 나누기
+
+전체 원본 한 장이 부서별 시트로 나뉩니다.
+
+![분류별 시트 나누기 전후 비교](docs/images/feature_02_split_sheets.png)
+
+### 3. 엑셀/CSV 파일 여러 개 합치기
+
+여러 제출 파일을 표준 컬럼 기준으로 하나의 결과표로 합칩니다.
+
+![파일 합치기 전후 비교](docs/images/feature_03_merge_files.png)
+
+### 4. 전/후 파일 검증
+
+수정 후 원본만 보면 안 보이는 변경점이 결과 엑셀에서 색과 메모로 표시됩니다.
+
+![전후 파일 검증 전후 비교](docs/images/feature_04_before_after_validation.png)
+
+### 5. 월별표 목록형 변환
+
+옆으로 펼쳐진 월별 열이 `열 기준`, `값` 목록형 데이터로 바뀝니다.
+
+![월별표 목록형 변환 전후 비교](docs/images/feature_05_monthly_list.png)
+
+### 6. 피벗 요약표 만들기
+
+상세 집행 내역이 부서/월 기준 요약표로 집계됩니다.
+
+![피벗 요약표 전후 비교](docs/images/feature_06_pivot_summary.png)
 
 ## 최근 업데이트
+
+### 2026-07-05
+
+- 기능별 엑셀 캡처를 `실행 전 => 실행 후` 비교 이미지로 교체했습니다.
+- 실행 화면 캡처를 현재 5번 월별표 목록형 변환, 6번 피벗 요약표 화면 기준으로 갱신했습니다.
+- 하단 `최근 저장 폴더 열기` 버튼의 세로 정렬을 보정했습니다.
 
 ### 2026-07-04
 
