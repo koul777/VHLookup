@@ -473,6 +473,11 @@ class ConsolidationEngine:
                         result,
                         preferred_reference_key_columns=reference_key_columns,
                         preferred_target_key_columns=base_key_columns,
+                        preferred_value_columns=tuple(
+                            str(column)
+                            for column in reference.columns
+                            if str(column) not in set(reference_key_columns)
+                        ),
                     )
                     mapping_records.append(
                         {
@@ -483,7 +488,7 @@ class ConsolidationEngine:
                             "대상표 컬럼": " + ".join(base_key_columns),
                             "신뢰도": 1.0,
                             "추천 방식": "합치기 화면에서 사용자가 선택한 기준열",
-                            "검토 메모": "",
+                            "검토 메모": "기준열을 제외한 이 파일의 모든 컬럼을 오른쪽에 붙입니다. 이름이 겹치면 _파일명이 붙습니다.",
                         }
                     )
                 else:

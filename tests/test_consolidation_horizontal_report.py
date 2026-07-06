@@ -142,13 +142,15 @@ def test_column_merge_uses_user_selected_base_key_column(tmp_path):
     pd.DataFrame(
         {
             "사번": ["001", "002"],
+            "지급월": ["2026-07", "2026-07"],
             "성명": ["홍길동", "김영희"],
         }
     ).to_excel(file_one, index=False)
     pd.DataFrame(
         {
-            "사번": ["002", "001"],
-            "직급": ["팀장", "주무관"],
+            "사번": ["002", "001", "003"],
+            "지급월": ["2026-07", "2026-07", "2026-08"],
+            "직급": ["팀장", "주무관", "미등록"],
         }
     ).to_excel(file_two, index=False)
 
@@ -156,9 +158,17 @@ def test_column_merge_uses_user_selected_base_key_column(tmp_path):
         [file_one, file_two],
         preferred_base_key_columns=("사번",),
     )
+    merged = result.result_frame
 
-    assert result.result_frame.loc[0, "직급"] == "주무관"
-    assert result.result_frame.loc[1, "직급"] == "팀장"
+    assert merged.loc[0, "직급"] == "주무관"
+    assert merged.loc[1, "직급"] == "팀장"
+    assert "지급월_extra" in merged.columns
+    assert merged.loc[0, "지급월"] == "2026-07"
+    assert merged.loc[0, "지급월_extra"] == "2026-07"
+    assert merged.loc[2, "사번"] == "003"
+    assert pd.isna(merged.loc[2, "지급월"])
+    assert merged.loc[2, "지급월_extra"] == "2026-08"
+    assert merged.loc[2, "직급"] == "미등록"
     assert "사용자 선택 기준열" in {row["역할"] for row in result.mapping_records}
 
 

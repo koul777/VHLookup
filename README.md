@@ -7,38 +7,43 @@
 - 개인정보 마스킹: 개인정보 컬럼을 자동 인식해 체크박스로 보여줍니다. 자동 인식된 컬럼은 미리 체크되어 있고, 체크를 해제해 빼거나 다른 컬럼을 추가로 체크해 마스킹할 수 있습니다.
 - 개인정보 마스킹: 마스킹 값은 원본 글자 수만큼 `*`로 표시합니다. 예: `홍길동` → `***`, `010-1234-5678` → `*************`
 - 파일 합치기: 기준열 선택 옵션을 추가했습니다. 열 합치기는 선택한 기준열을 키 컬럼으로 사용하고, 행 합치기는 기준열 값 순서로 정렬합니다.
+- 파일 합치기: 기준열을 직접 지정한 열 합치기는 VLOOKUP과 같은 원리로 기준열을 제외한 붙일 파일의 모든 컬럼을 오른쪽에 붙입니다. 양쪽에 같은 이름의 컬럼이 있으면 `지급월`, `지급월_파일명`처럼 각각 다른 컬럼으로 표시합니다.
 - 전/후 파일 검증: 전에는 있었는데 후 파일에서 사라진 행은 빨간색 배경과 함께 취소선으로 표시합니다.
+- 배포 방식: 다운로드 차단을 줄이기 위해 실행파일을 zip으로 압축해 배포합니다.
 
 공공기관, 교육청, 학교, HR, 총무, 예산 담당자가 반복하는 엑셀 수합, 대조, 검증, 요약 업무를 로컬 PC에서 처리하는 Windows용 업무 자동화 도구입니다.
 
-비개발자 사용자는 Python이나 개발 환경을 몰라도 됩니다. 아래 Windows 실행파일을 내려받아 더블클릭해서 사용합니다.
+비개발자 사용자는 Python이나 개발 환경을 몰라도 됩니다. 아래 zip 파일을 내려받아 압축을 푼 뒤, 안의 실행파일을 더블클릭해서 사용합니다.
 
-- [VHLookup Local V1.3 Windows 실행파일 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_v1.3.exe)
-- 직접 다운로드가 안 되면 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 `VHLookupLocal_v1.3.exe`를 내려받습니다.
+- [VHLookup Local V1.3 Windows 실행파일(zip) 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_v1.3.zip)
+- 직접 다운로드가 안 되면 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 `VHLookupLocal_v1.3.zip`을 내려받습니다.
+- 압축을 풀면 나오는 `VHLookupLocal_v1.3.exe`를 더블클릭해서 실행합니다.
 - [VHlookup 사용설명서 PDF 바로 다운로드](https://raw.githubusercontent.com/koul777/VHLookup/main/docs/manuals/VHLookup_User_Guide.pdf)
 
-GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을 포함하지 않습니다. exe 파일은 GitHub Release 첨부파일로 배포합니다.
+GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을 포함하지 않습니다. 실행파일은 zip으로 압축해 GitHub Release 첨부파일로 배포합니다. exe를 바로 배포하지 않고 zip으로 배포하는 이유는 브라우저와 SmartScreen이 서명되지 않은 exe 직접 다운로드를 차단하는 경우가 많기 때문입니다.
 
 ### 다운로드가 차단될 때
 
 Windows 또는 Microsoft Edge에서 `일반적으로 다운로드되지 않음`, `다운로드할 수 없음`, SmartScreen 경고가 나올 수 있습니다. 현재 실행파일은 새로 빌드한 서명되지 않은 exe라서 Microsoft 평판 정보가 충분하지 않을 수 있습니다.
 
 - 공유하거나 안내할 때, Microsoft 피드백이나 오탐 신고를 할 때는 긴 `release-assets.githubusercontent.com/...` 주소를 사용하지 않습니다. 이 주소는 GitHub가 다운로드 순간에 발급하는 임시 주소라 시간이 지나면 만료됩니다.
-- 공식 다운로드 주소는 위의 `최신 Windows 실행파일 다운로드` 또는 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)입니다.
-- 내려받은 파일명이 `VHLookupLocal_v1.3.exe`인지 확인합니다.
+- 공식 다운로드 주소는 위의 `V1.3 Windows 실행파일(zip) 다운로드` 또는 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)입니다.
+- 내려받은 파일명이 `VHLookupLocal_v1.3.zip`인지 확인합니다.
 - 파일을 실행하기 전에 PowerShell에서 SHA256을 확인할 수 있습니다.
 
 ```powershell
+Get-FileHash .\VHLookupLocal_v1.3.zip -Algorithm SHA256
 Get-FileHash .\VHLookupLocal_v1.3.exe -Algorithm SHA256
 ```
 
 현재 `v1.3` 빌드 기준 SHA256은 아래와 같습니다.
 
 ```text
-96F35145DDB0D4431BFA530D9D5FB44E1B633AEDAB8551BB5FFFD84E806D0DB2
+VHLookupLocal_v1.3.zip: 750C9702F8598E654265F4F7B513615511E9F8DAFA422BCEF593767C1D07D6BF
+VHLookupLocal_v1.3.exe: 1EC4228B431B8FE99CC13DA63817E6A41A7C840096245FC15CA970F4A8096587
 ```
 
-현재 `v1.3` 빌드 파일 크기는 `37,811,910 bytes`입니다.
+현재 `v1.3` 빌드 파일 크기는 zip `35,057,647 bytes`, 압축 해제 후 exe `37,811,390 bytes`입니다.
 
 공식 Release에서 받은 파일이고 SHA256이 일치하면 Edge 다운로드 목록에서 `유지` 또는 `그래도 유지`를 선택할 수 있습니다. 실행 시 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다.
 
@@ -176,6 +181,7 @@ dist\VHLookupLocal_v1.3.exe
 - `열 합치기`: 공통 키를 찾아 다른 파일의 열을 오른쪽에 붙임
 - 기본값은 `자동 선택`이며 파일 구조를 보고 행/열 합치기를 추천
 - `기준열` 드롭박스에서 첫 번째 파일의 열을 직접 선택 가능: 열 합치기는 선택한 기준열을 키 컬럼으로 사용하고, 행 합치기는 기준열 값 순서로 정렬
+- 기준열을 직접 지정한 열 합치기는 VLOOKUP과 같은 원리로 기준열을 제외한 붙일 파일의 모든 컬럼을 오른쪽에 붙임. 양쪽에 같은 이름의 컬럼이 있으면 `지급월`, `지급월_파일명`처럼 각각 별도 컬럼으로 표시
 - 컬럼명이 달라도 동의어, 이름 유사도, 실제 값 겹침으로 자동 매칭
 - `사번`과 `직원번호`, `관리번호`와 `접수ID`처럼 이름이 달라도 값이 충분히 겹치면 키 후보로 추천
 - `00123`과 `123`처럼 앞자리 0 표시가 다른 숫자형 키도 같은 대상으로 비교
@@ -230,7 +236,7 @@ dist\VHLookupLocal_v1.3.exe
 
 ## 사용 순서
 
-1. 전달받은 `VHLookupLocal_v1.3.exe`를 더블클릭합니다. 직접 빌드한 경우에는 `dist\VHLookupLocal_v1.3.exe`를 실행합니다.
+1. 내려받은 `VHLookupLocal_v1.3.zip`의 압축을 풀고 `VHLookupLocal_v1.3.exe`를 더블클릭합니다. 직접 빌드한 경우에는 `dist\VHLookupLocal_v1.3.exe`를 실행합니다.
 2. 실행할 작업 버튼을 선택합니다.
 3. 파일을 올립니다.
 4. 미리보기에서 예상 결과를 확인합니다.
