@@ -8,7 +8,7 @@ import traceback
 from numbers import Integral, Real
 from datetime import datetime
 from pathlib import Path
-from tkinter import Canvas, END, Listbox, StringVar, Text, Tk, Toplevel, filedialog, messagebox
+from tkinter import BooleanVar, Canvas, END, Listbox, StringVar, Text, Tk, Toplevel, filedialog, messagebox
 from tkinter import ttk
 
 import pandas as pd
@@ -287,7 +287,7 @@ class LocalApp:
         self._action_button(
             actions,
             "1. 개인정보 마스킹",
-            "이름, 고유식별번호, 연락처, 이메일, 계좌번호, 주소, 성별, 나이, 생년월일을 가린 새 엑셀을 만듭니다.",
+            "개인정보 컬럼을 자동 인식해 체크박스로 확인/추가한 뒤, 값을 글자 수만큼 *로 가린 새 엑셀을 만듭니다.",
             self.quick_privacy_mask,
         )
         self._action_button(
@@ -299,7 +299,7 @@ class LocalApp:
         self._action_button(
             actions,
             "3. 엑셀/CSV 파일 여러 개 합치기",
-            "파일 구조를 보고 행/열 합치기를 자동 추천하고, 합쳐진 결과를 첫 시트로 만듭니다.",
+            "파일 구조를 보고 행/열 합치기를 자동 추천하고, 기준열을 직접 선택해 합칠 수도 있습니다.",
             self.quick_consolidate,
         )
         self._action_button(
@@ -401,15 +401,108 @@ class LocalApp:
         file_path = self._ask_file_or_none("개인정보를 마스킹할 엑셀/CSV 파일을 선택하세요")
         if not file_path:
             return
+
+        engine = PrivacyMaskingEngine()
+        try:
+            preview_table, _metadata = engine.load_table(file_path, max_rows=PREVIEW_LOAD_ROW_LIMIT)
+            detected = engine.detect_maskable_columns(preview_table)
+        except Exception as exc:
+            messagebox.showerror(APP_TITLE, f"파일을 읽을 수 없습니다.\n{exc}")
+            return
+
+        selected_columns = self._choose_mask_columns_dialog(
+            [str(column) for column in preview_table.columns],
+            detected,
+        )
+        if selected_columns is None:
+            return
+        if not selected_columns:
+            messagebox.showwarning(APP_TITLE, "마스킹할 컬럼을 1개 이상 체크해주세요.")
+            return
         output = self._ask_save_path_or_none("마스킹 결과를 저장할 위치를 선택하세요", "개인정보_마스킹결과")
         if not output:
             return
 
         def job(progress):
-            PrivacyMaskingEngine().write_xlsx(file_path, output, progress_callback=progress)
+            PrivacyMaskingEngine().write_xlsx(
+                file_path,
+                output,
+                selected_columns=selected_columns,
+                progress_callback=progress,
+            )
             return [output]
 
         self._run_with_progress("개인정보 마스킹", job, open_path=output.parent)
+
+    def _choose_mask_columns_dialog(
+        self,
+        columns: list[str],
+        detected: dict[str, list[str]],
+    ) -> list[str] | None:
+        dialog = Toplevel(self.root)
+        dialog.title("마스킹할 컬럼 선택")
+        dialog.geometry("620x560")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        result: dict[str, list[str] | None] = {"value": None}
+        variables: dict[str, BooleanVar] = {}
+
+        frame = ttk.Frame(dialog, padding=14)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(
+            frame,
+            text="자동 인식된 개인정보 컬럼은 미리 체크되어 있습니다.",
+            font=("", 11, "bold"),
+        ).pack(anchor="w")
+        ttk.Label(
+            frame,
+            text="체크를 해제해 마스킹에서 빼거나, 다른 컬럼을 체크해 추가할 수 있습니다.\n체크된 컬럼의 값은 글자 수만큼 *로 바뀝니다.",
+            justify="left",
+            foreground="#526173",
+        ).pack(anchor="w", pady=(4, 10))
+
+        list_box = ttk.Frame(frame)
+        list_box.pack(fill="both", expand=True)
+        inner, _canvas = self._scrollable_frame(list_box)
+        for row_index, column in enumerate(columns):
+            variable = BooleanVar(value=column in detected)
+            variables[column] = variable
+            if column in detected:
+                label = f"{column}  (자동 인식: {', '.join(detected[column])})"
+            else:
+                label = column
+            ttk.Checkbutton(inner, text=label, variable=variable).grid(
+                row=row_index, column=0, sticky="w", padx=4, pady=2
+            )
+        inner.columnconfigure(0, weight=1)
+
+        def set_all(value: bool) -> None:
+            for variable in variables.values():
+                variable.set(value)
+
+        def set_detected_only() -> None:
+            for column, variable in variables.items():
+                variable.set(column in detected)
+
+        def confirm() -> None:
+            result["value"] = [column for column in columns if variables[column].get()]
+            dialog.destroy()
+
+        def cancel() -> None:
+            result["value"] = None
+            dialog.destroy()
+
+        button_row = ttk.Frame(frame)
+        button_row.pack(fill="x", pady=(12, 0))
+        ttk.Button(button_row, text="전체 체크", command=lambda: set_all(True)).pack(side="left")
+        ttk.Button(button_row, text="전체 해제", command=lambda: set_all(False)).pack(side="left", padx=(8, 0))
+        ttk.Button(button_row, text="자동 인식만", command=set_detected_only).pack(side="left", padx=(8, 0))
+        ttk.Button(button_row, text="취소", command=cancel).pack(side="right")
+        ttk.Button(button_row, text="이 컬럼들 마스킹", command=confirm).pack(side="right", padx=(0, 8))
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
+        self.root.wait_window(dialog)
+        return result["value"]
 
     def quick_split_sheets(self) -> None:
         file_path = self._ask_file_or_none("분류별로 나눌 엑셀/CSV 파일을 선택하세요")
@@ -945,9 +1038,11 @@ class LocalApp:
         dialog.transient(self.root)
         dialog.grab_set()
 
+        auto_key_label = "(자동 추천)"
         files: list[Path] = []
         merge_mode = StringVar(value="auto")
         mode_status = StringVar(value="자동 선택: 파일을 올리면 행/열 합치기를 추천합니다.")
+        key_choice = StringVar(value=auto_key_label)
         manual_row_mappings: dict[str, dict[str, str]] | None = None
         manual_column_plans: dict[str, dict[str, object]] | None = None
 
@@ -971,6 +1066,18 @@ class LocalApp:
             for index, file in enumerate(files, start=1):
                 file_list.insert(END, f"{index}. {file}")
 
+        def refresh_key_options() -> None:
+            options = [auto_key_label]
+            if files:
+                try:
+                    first_table = load_table(files[0], max_rows=PREVIEW_LOAD_ROW_LIMIT)
+                    options.extend(str(column) for column in first_table.columns)
+                except Exception:
+                    pass
+            key_combo.configure(values=options)
+            if key_choice.get() not in options:
+                key_choice.set(auto_key_label)
+
         def add_files() -> None:
             selected = filedialog.askopenfilenames(
                 parent=dialog,
@@ -983,6 +1090,7 @@ class LocalApp:
                 if file_path not in files:
                     files.append(file_path)
             refresh_files()
+            refresh_key_options()
             refresh_preview()
 
         def clear_files() -> None:
@@ -991,6 +1099,7 @@ class LocalApp:
             manual_row_mappings = None
             manual_column_plans = None
             refresh_files()
+            refresh_key_options()
             refresh_preview()
 
         button_row = ttk.Frame(frame)
@@ -1018,6 +1127,21 @@ class LocalApp:
             value="columns",
             variable=merge_mode,
         ).pack(anchor="w", pady=(4, 0))
+
+        key_row = ttk.Frame(mode_frame)
+        key_row.pack(fill="x", pady=(10, 0))
+        ttk.Label(key_row, text="기준열", width=8).pack(side="left")
+        key_combo = ttk.Combobox(key_row, textvariable=key_choice, values=[auto_key_label], state="readonly", width=30)
+        key_combo.pack(side="left")
+        ttk.Label(
+            key_row,
+            text="첫 번째 파일의 열 중에서 선택합니다. 열 합치기는 키 컬럼으로, 행 합치기는 정렬 기준으로 사용합니다.",
+            foreground="#526173",
+            wraplength=520,
+            justify="left",
+        ).pack(side="left", padx=(10, 0))
+        key_combo.bind("<<ComboboxSelected>>", lambda _event: refresh_preview())
+
         ttk.Label(mode_frame, textvariable=mode_status, foreground="#374151").pack(anchor="w", pady=(8, 0))
 
         preview_box = ttk.LabelFrame(frame, text="미리보기", padding=8)
@@ -1043,6 +1167,10 @@ class LocalApp:
 
             return emit
 
+        def selected_key_column() -> str | None:
+            value = key_choice.get()
+            return value if value and value != auto_key_label else None
+
         def effective_merge_mode(progress_callback=None) -> str:
             selected = merge_mode.get()
             if selected != "auto":
@@ -1063,11 +1191,13 @@ class LocalApp:
             progress_callback(2, "파일 탑재 미리보기 준비 중")
             mode = effective_merge_mode(scaled_progress(progress_callback, 5, 35))
             preview_progress = scaled_progress(progress_callback, 38, 94)
+            key_column = selected_key_column()
             if mode == "columns":
                 result = ConsolidationEngine().merge_files_by_columns(
                     files,
                     merge_plans_by_file=manual_column_plans,
                     max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT,
+                    preferred_base_key_columns=(key_column,) if key_column else None,
                     progress_callback=preview_progress,
                 )
             else:
@@ -1076,6 +1206,7 @@ class LocalApp:
                     template=None,
                     saved_mappings_by_file=manual_row_mappings,
                     max_rows_per_file=PREVIEW_LOAD_ROW_LIMIT,
+                    sort_key_columns=[key_column] if key_column else None,
                     progress_callback=preview_progress,
                 )
             progress_callback(96, "미리보기 표 정리 중")
@@ -1140,6 +1271,7 @@ class LocalApp:
                 return
             selected_files = list(files)
             selected_mode = effective_merge_mode()
+            selected_key = selected_key_column()
             output = self._ask_save_path_or_none(
                 "합치기 결과를 저장할 위치를 선택하세요",
                 "파일열합치기_결과" if selected_mode == "columns" else "파일행합치기_결과",
@@ -1154,6 +1286,7 @@ class LocalApp:
                     result = ConsolidationEngine().merge_files_by_columns(
                         selected_files,
                         merge_plans_by_file=manual_column_plans,
+                        preferred_base_key_columns=(selected_key,) if selected_key else None,
                         progress_callback=progress,
                     )
                 else:
@@ -1161,6 +1294,7 @@ class LocalApp:
                         selected_files,
                         template=None,
                         saved_mappings_by_file=manual_row_mappings,
+                        sort_key_columns=[selected_key] if selected_key else None,
                         progress_callback=progress,
                     )
                 progress(90, "결과 엑셀 저장 중")
@@ -1221,7 +1355,11 @@ class LocalApp:
 
         ttk.Label(
             frame,
-            text="결과의 후파일_메모 시트에서 노란색 셀을 열면 전 값/후 값 메모를 볼 수 있습니다.",
+            text=(
+                "결과의 후파일_메모 시트에서 노란색 셀을 열면 전 값/후 값 메모를 볼 수 있습니다.\n"
+                "전에는 있었는데 후 파일에서 없어진 행은 맨 아래에 빨간색 배경과 취소선으로 표시됩니다."
+            ),
+            justify="left",
             wraplength=620,
         ).pack(anchor="w", pady=(12, 0))
 

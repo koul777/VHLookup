@@ -769,14 +769,27 @@ class WorkbookDiffReportWriter:
                 data_column_count,
                 self.MISSING_ROW_FILL,
                 "후 파일에서 사라진 행입니다. 전 파일에는 있었지만 후 파일에는 없습니다.",
+                strikethrough=True,
             )
             remaining_marks = self._decrement_mark_budget(remaining_marks, data_column_count)
             appended_row_number += 1
 
-    def _mark_row(self, sheet, row_number: int, column_count: int, fill: str, message: str) -> None:
+    def _mark_row(
+        self,
+        sheet,
+        row_number: int,
+        column_count: int,
+        fill: str,
+        message: str,
+        strikethrough: bool = False,
+    ) -> None:
         row_fill = PatternFill("solid", fgColor=fill)
+        strike_font = Font(strike=True) if strikethrough else None
         for column_number in range(1, column_count + 1):
-            sheet.cell(row=row_number, column=column_number).fill = row_fill
+            cell = sheet.cell(row=row_number, column=column_number)
+            cell.fill = row_fill
+            if strike_font is not None:
+                cell.font = strike_font
         first_cell = sheet.cell(row=row_number, column=1)
         if first_cell.comment is None:
             first_cell.comment = make_comment(message)

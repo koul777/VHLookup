@@ -111,6 +111,8 @@ def test_workbook_diff_reports_missing_rows_with_original_values(tmp_path):
     assert "전 파일에 없던 행" in memo_sheet["A4"].comment.text
     assert memo_sheet["A5"].comment is not None
     assert "후 파일에서 사라진 행" in memo_sheet["A5"].comment.text
+    assert all(memo_sheet.cell(row=5, column=column).font.strike for column in range(1, 7))
+    assert not memo_sheet.cell(row=4, column=1).font.strike
     assert memo_sheet["E3"].fill.fgColor.rgb in {"00FDE68A", "FDE68A"}
     review = sheets["확인사항"]
     missing_row = review[review["비교 기준"] == "E003"].iloc[0]

@@ -129,6 +129,7 @@ class ConsolidationEngine:
         template: WorkflowTemplate | str | None = None,
         saved_mappings_by_file: dict[str, dict[str, str]] | None = None,
         max_rows_per_file: int | None = None,
+        sort_key_columns: list[str] | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> JobResult:
         issues: list[ValidationIssue] = []
@@ -252,6 +253,23 @@ class ConsolidationEngine:
 
         self._emit_progress(progress_callback, 74, "파일을 하나의 표로 합치는 중")
         result = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        resolved_sort_columns = [
+            column for column in (sort_key_columns or []) if column in result.columns
+        ]
+        if resolved_sort_columns:
+            result = result.sort_values(by=resolved_sort_columns, kind="stable", ignore_index=True)
+            mapping_records.append(
+                {
+                    "역할": "기준열 정렬",
+                    "파일명": "",
+                    "시트명": "",
+                    "원본 컬럼": ", ".join(resolved_sort_columns),
+                    "표준 컬럼": "",
+                    "신뢰도": 1.0,
+                    "추천 방식": "사용자가 선택한 기준열 값 순서로 합친 결과를 정렬",
+                    "검토 메모": "",
+                }
+            )
         if not result.empty:
             self._emit_progress(progress_callback, 78, "결과 값 검증 중")
             issues.extend(self.validation_engine.validate_frame(result, validation_profile))
@@ -279,6 +297,8 @@ class ConsolidationEngine:
             ),
             "mapped_column_count": mapping_count,
         }
+        if resolved_sort_columns:
+            summary["sort_key_columns"] = ", ".join(resolved_sort_columns)
         return JobResult(result_frame=public_result, issues=issues, summary=summary, mapping_records=mapping_records)
 
     def merge_files_by_columns(
@@ -287,6 +307,7 @@ class ConsolidationEngine:
         scan_rows: int | str = 30,
         merge_plans_by_file: dict[str, dict[str, object]] | None = None,
         max_rows_per_file: int | None = None,
+        preferred_base_key_columns: tuple[str, ...] | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> JobResult:
         loaded: list[tuple[Path, str, pd.DataFrame]] = []
@@ -442,7 +463,31 @@ class ConsolidationEngine:
                     )
                     continue
 
-                plan = planner.infer_lookup_plan(reference, result)
+                base_key_columns = tuple(
+                    column for column in (preferred_base_key_columns or ()) if column in result.columns
+                )
+                if base_key_columns:
+                    reference_key_columns = self._resolve_reference_key_columns(reference, base_key_columns)
+                    plan = planner.infer_lookup_plan(
+                        reference,
+                        result,
+                        preferred_reference_key_columns=reference_key_columns,
+                        preferred_target_key_columns=base_key_columns,
+                    )
+                    mapping_records.append(
+                        {
+                            "역할": "사용자 선택 기준열",
+                            "파일명": path.name,
+                            "시트명": sheet_name,
+                            "기준표 컬럼": " + ".join(reference_key_columns),
+                            "대상표 컬럼": " + ".join(base_key_columns),
+                            "신뢰도": 1.0,
+                            "추천 방식": "합치기 화면에서 사용자가 선택한 기준열",
+                            "검토 메모": "",
+                        }
+                    )
+                else:
+                    plan = planner.infer_lookup_plan(reference, result)
                 merge_result = merger.merge_lookup(
                     reference,
                     result,
@@ -520,6 +565,24 @@ class ConsolidationEngine:
         if callback is None:
             return
         callback(max(0, min(int(percent), 100)), message)
+
+    def _resolve_reference_key_columns(
+        self,
+        reference: pd.DataFrame,
+        base_key_columns: tuple[str, ...],
+    ) -> tuple[str, ...]:
+        reference_columns = [str(column) for column in reference.columns]
+        mapping = self.mapper.map_columns(reference_columns, list(base_key_columns), threshold=0.70)
+        resolved: list[str] = []
+        for base_column in base_key_columns:
+            if base_column in reference_columns:
+                resolved.append(base_column)
+                continue
+            matched = mapping.target_to_source.get(base_column)
+            if not matched:
+                raise KeyError(f"선택한 기준열과 맞는 컬럼을 이 파일에서 찾지 못했습니다: {base_column}")
+            resolved.append(matched)
+        return tuple(resolved)
 
     def _annotate_column_merge_issues(
         self,

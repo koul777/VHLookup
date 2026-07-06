@@ -55,7 +55,8 @@ BIRTHDATE_SUFFIX_CONTEXT_RE = re.compile(
     rf"({BIRTHDATE_VALUE_PATTERN})\s*(생|출생)",
     re.IGNORECASE,
 )
-LONG_DIGIT_RE = re.compile(r"\d{5,}")
+MASK_DETECTION_SAMPLE_ROWS = 200
+USER_SELECTED_TYPE = "사용자 지정"
 
 
 @dataclass(frozen=True)
@@ -76,36 +77,83 @@ class PrivacyMaskingEngine:
         self.header_detector = header_detector or HeaderDetector()
         self.sheet_detector = sheet_detector or SheetDetector(self.header_detector)
 
-    def mask_file(self, path: str | Path, progress_callback: ProgressCallback | None = None) -> PrivacyMaskingResult:
+    def mask_file(
+        self,
+        path: str | Path,
+        selected_columns: list[str] | None = None,
+        progress_callback: ProgressCallback | None = None,
+    ) -> PrivacyMaskingResult:
         self._emit_progress(progress_callback, 8, "원본 파일 읽는 중")
         table, metadata = self._load_table(path)
         self._emit_progress(progress_callback, 18, "개인정보 패턴 찾는 중")
-        result = self.mask_frame(table, progress_callback=progress_callback)
+        result = self.mask_frame(table, selected_columns=selected_columns, progress_callback=progress_callback)
         result.summary.update(metadata)
         return result
+
+    def load_table(self, path: str | Path, max_rows: int | None = None) -> tuple[pd.DataFrame, dict[str, Any]]:
+        return self._load_table(path, max_rows=max_rows)
+
+    def detect_maskable_columns(self, frame: pd.DataFrame) -> dict[str, list[str]]:
+        detected: dict[str, list[str]] = {}
+        sample = frame.head(MASK_DETECTION_SAMPLE_ROWS)
+        for column in frame.columns:
+            types = self._types_for_column(str(column))
+            types.update(self._types_from_values(sample[column]))
+            if types:
+                detected[str(column)] = sorted(types)
+        return detected
+
+    def _types_from_values(self, values: pd.Series) -> set[str]:
+        types: set[str] = set()
+        all_value_types = {"주민등록번호", "연락처", "이메일", "생년월일"}
+        for value in values:
+            if is_blank(value):
+                continue
+            text = display_value(value)
+            if RRN_RE.search(text):
+                types.add("주민등록번호")
+            if PHONE_RE.search(text):
+                types.add("연락처")
+            if EMAIL_RE.search(text):
+                types.add("이메일")
+            if BIRTHDATE_PREFIX_CONTEXT_RE.search(text) or BIRTHDATE_SUFFIX_CONTEXT_RE.search(text):
+                types.add("생년월일")
+            if types >= all_value_types:
+                break
+        return types
 
     def mask_frame(
         self,
         frame: pd.DataFrame,
+        selected_columns: list[str] | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> PrivacyMaskingResult:
         masked = frame.copy()
         records: list[dict[str, Any]] = []
+        detected = self.detect_maskable_columns(frame)
+        if selected_columns is None:
+            target_columns = list(detected.keys())
+        else:
+            selected_set = {str(column) for column in selected_columns}
+            target_columns = [str(column) for column in frame.columns if str(column) in selected_set]
+        column_positions = {str(column): index for index, column in enumerate(frame.columns)}
 
-        column_count = max(len(masked.columns), 1)
-        for column_index, column in enumerate(masked.columns):
+        column_count = max(len(target_columns), 1)
+        for target_index, column in enumerate(target_columns):
             self._emit_progress(
                 progress_callback,
-                18 + int(column_index / column_count * 58),
-                f"개인정보 검사 중: {column}",
+                18 + int(target_index / column_count * 58),
+                f"마스킹 중: {column}",
             )
-            column_types = self._types_for_column(str(column))
+            column_index = column_positions[column]
+            column_types = detected.get(column, [USER_SELECTED_TYPE])
+            masked[column] = masked[column].astype(object)
             for row_index, value in masked[column].items():
-                masked_value, applied_types = self._mask_value(value, column_types)
-                if masked_value == value and not applied_types:
+                if is_blank(value):
                     continue
-                masked.at[row_index, column] = masked_value
-                for masking_type in applied_types:
+                text = display_value(value)
+                masked.at[row_index, column] = "*" * len(text)
+                for masking_type in column_types:
                     records.append(
                         {
                             "행 번호": int(row_index) + 2,
@@ -118,7 +166,7 @@ class PrivacyMaskingEngine:
                     )
             self._emit_progress(
                 progress_callback,
-                18 + int((column_index + 1) / column_count * 58),
+                18 + int((target_index + 1) / column_count * 58),
                 f"마스킹 완료: {column}",
             )
 
@@ -136,6 +184,8 @@ class PrivacyMaskingEngine:
             if not record_frame.empty
             else 0,
             "masking_record_count": len(record_frame),
+            "masked_columns": ", ".join(target_columns),
+            "auto_detected_columns": ", ".join(detected.keys()),
         }
         result = PrivacyMaskingResult(masked_frame=masked, records=public_records, summary=summary)
         object.__setattr__(result, "_internal_records", record_frame)
@@ -145,9 +195,10 @@ class PrivacyMaskingEngine:
         self,
         path: str | Path,
         output_path: str | Path,
+        selected_columns: list[str] | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> Path:
-        result = self.mask_file(path, progress_callback=progress_callback)
+        result = self.mask_file(path, selected_columns=selected_columns, progress_callback=progress_callback)
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
         self._emit_progress(progress_callback, 82, "마스킹 결과 엑셀 저장 중")
@@ -164,8 +215,8 @@ class PrivacyMaskingEngine:
             return
         callback(max(0, min(int(percent), 100)), message)
 
-    def _load_table(self, path: str | Path) -> tuple[pd.DataFrame, dict[str, Any]]:
-        source = self.loader.load(path)
+    def _load_table(self, path: str | Path, max_rows: int | None = None) -> tuple[pd.DataFrame, dict[str, Any]]:
+        source = self.loader.load(path, max_rows=max_rows)
         sheet = self.sheet_detector.select(source)
         detection = self.header_detector.detect(sheet)
         table = self.header_detector.apply(sheet, detection)
@@ -200,105 +251,6 @@ class PrivacyMaskingEngine:
         if self._matches(normalized, BIRTHDATE_HEADERS):
             types.add("생년월일")
         return types
-
-    def _mask_value(self, value: object, column_types: set[str]) -> tuple[object, list[str]]:
-        if is_blank(value):
-            return value, []
-        text = display_value(value)
-        original = text
-        applied: list[str] = []
-
-        text, changed = self._mask_rrn_patterns(text)
-        if changed:
-            applied.append("주민등록번호")
-        text, changed = self._mask_phone_patterns(text)
-        if changed:
-            applied.append("연락처")
-        text, changed = self._mask_email_patterns(text)
-        if changed:
-            applied.append("이메일")
-        text, changed = self._mask_birthdate_context_patterns(text)
-        if changed:
-            applied.append("생년월일")
-
-        if "주민등록번호" in column_types:
-            text, changed = self._mask_rrn_patterns(text, fallback=True)
-            if changed:
-                applied.append("주민등록번호")
-        if "이름" in column_types:
-            masked_name = mask_name(text)
-            if masked_name != text:
-                text = masked_name
-                applied.append("이름")
-        if "연락처" in column_types:
-            masked_phone = mask_phone_text(text)
-            if masked_phone != text:
-                text = masked_phone
-                applied.append("연락처")
-        if "이메일" in column_types:
-            text, changed = self._mask_email_patterns(text, fallback=True)
-            if changed:
-                applied.append("이메일")
-        if "계좌번호" in column_types:
-            masked_account = mask_long_digits(text)
-            if masked_account != text:
-                text = masked_account
-                applied.append("계좌번호")
-        if "주소" in column_types:
-            masked_address = mask_address(text)
-            if masked_address != text:
-                text = masked_address
-                applied.append("주소")
-        if "식별번호" in column_types:
-            masked_identifier = mask_identifier(text)
-            if masked_identifier != text:
-                text = masked_identifier
-                applied.append("식별번호")
-        if "성별" in column_types:
-            masked_gender = mask_placeholder(text, "성별")
-            if masked_gender != text:
-                text = masked_gender
-                applied.append("성별")
-        if "나이" in column_types:
-            masked_age = mask_placeholder(text, "나이")
-            if masked_age != text:
-                text = masked_age
-                applied.append("나이")
-        if "생년월일" in column_types:
-            masked_birthdate = mask_placeholder(text, "생년월일")
-            if masked_birthdate != text:
-                text = masked_birthdate
-                applied.append("생년월일")
-
-        deduped = list(dict.fromkeys(applied))
-        return (text if text != original else value), deduped
-
-    def _mask_rrn_patterns(self, text: str, fallback: bool = False) -> tuple[str, bool]:
-        masked, count = RRN_RE.subn(lambda match: "******-*******", text)
-        if count or not fallback:
-            return masked, bool(count)
-        digits = re.sub(r"\D", "", text)
-        if len(digits) == 13 and digits[6] in "12345678":
-            return "******-*******", True
-        return text, False
-
-    def _mask_phone_patterns(self, text: str) -> tuple[str, bool]:
-        masked, count = PHONE_RE.subn("***", text)
-        return masked, bool(count)
-
-    def _mask_email_patterns(self, text: str, fallback: bool = False) -> tuple[str, bool]:
-        masked, count = EMAIL_RE.subn("***", text)
-        if count or not fallback or "@" not in text:
-            return masked, bool(count)
-        local, _, domain = text.partition("@")
-        if local and domain:
-            return "***", True
-        return text, False
-
-    def _mask_birthdate_context_patterns(self, text: str) -> tuple[str, bool]:
-        masked, prefix_count = BIRTHDATE_PREFIX_CONTEXT_RE.subn(lambda match: f"{match.group(1)}***", text)
-        masked, suffix_count = BIRTHDATE_SUFFIX_CONTEXT_RE.subn(lambda match: f"***{match.group(2)}", masked)
-        return masked, bool(prefix_count or suffix_count)
 
     def _guide_frame(self, result: PrivacyMaskingResult) -> pd.DataFrame:
         rows = [
@@ -352,48 +304,6 @@ class PrivacyMaskingEngine:
         return any(keyword and normalize_header(keyword) in normalized for keyword in headers)
 
     def _action_text(self, masking_type: str) -> str:
-        actions = {
-            "주민등록번호": "주민등록번호 또는 외국인등록번호 전체를 가렸습니다.",
-            "이름": "이름 값을 전체 가렸습니다.",
-            "연락처": "연락처 값을 전체 가렸습니다.",
-            "이메일": "이메일 주소 전체를 가렸습니다.",
-            "계좌번호": "계좌번호 값을 전체 가렸습니다.",
-            "주소": "주소 값을 전체 가렸습니다.",
-            "식별번호": "식별번호 앞부분을 가렸습니다.",
-            "성별": "성별 값을 전체 가렸습니다.",
-            "나이": "나이 또는 연령 값을 전체 가렸습니다.",
-            "생년월일": "생년월일 값을 전체 가렸습니다.",
-        }
-        return actions.get(masking_type, "개인정보 의심 값을 가렸습니다.")
-
-
-def mask_name(text: str) -> str:
-    return mask_placeholder(text, "성명")
-
-
-def mask_phone_text(text: str) -> str:
-    masked, count = PHONE_RE.subn("***", text)
-    if count:
-        return masked
-    digits = re.sub(r"\D", "", text)
-    if 7 <= len(digits) <= 11:
-        return "***"
-    return text
-
-
-def mask_long_digits(text: str) -> str:
-    return "***" if LONG_DIGIT_RE.search(text) else text
-
-
-def mask_address(text: str) -> str:
-    return mask_placeholder(text, "주소")
-
-
-def mask_identifier(text: str) -> str:
-    if len(text) <= 2:
-        return "*" * len(text)
-    return f"{'*' * (len(text) - 2)}{text[-2:]}"
-
-
-def mask_placeholder(text: str, label: str) -> str:
-    return "***" if text.strip() else text
+        if masking_type == USER_SELECTED_TYPE:
+            return "사용자가 선택한 컬럼의 값을 글자 수만큼 *로 가렸습니다."
+        return f"{masking_type} 컬럼으로 인식되어 값을 글자 수만큼 *로 가렸습니다."

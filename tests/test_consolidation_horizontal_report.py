@@ -119,6 +119,49 @@ def test_column_merge_attaches_columns_by_common_key(tmp_path):
     assert "키 컬럼" in {row["역할"] for row in result.mapping_records}
 
 
+def test_consolidation_sorts_rows_by_selected_key_column(tmp_path):
+    file_one = tmp_path / "one.xlsx"
+    file_two = tmp_path / "two.xlsx"
+    pd.DataFrame({"사번": ["003", "001"], "성명": ["박철수", "홍길동"]}).to_excel(file_one, index=False)
+    pd.DataFrame({"사번": ["002"], "성명": ["김영희"]}).to_excel(file_two, index=False)
+
+    result = ConsolidationEngine().consolidate_files(
+        [file_one, file_two],
+        sort_key_columns=["사번"],
+    )
+
+    assert result.result_frame["사번"].tolist() == ["001", "002", "003"]
+    assert result.result_frame["성명"].tolist() == ["홍길동", "김영희", "박철수"]
+    assert result.summary["sort_key_columns"] == "사번"
+    assert "기준열 정렬" in {row["역할"] for row in result.mapping_records}
+
+
+def test_column_merge_uses_user_selected_base_key_column(tmp_path):
+    file_one = tmp_path / "base.xlsx"
+    file_two = tmp_path / "extra.xlsx"
+    pd.DataFrame(
+        {
+            "사번": ["001", "002"],
+            "성명": ["홍길동", "김영희"],
+        }
+    ).to_excel(file_one, index=False)
+    pd.DataFrame(
+        {
+            "사번": ["002", "001"],
+            "직급": ["팀장", "주무관"],
+        }
+    ).to_excel(file_two, index=False)
+
+    result = ConsolidationEngine().merge_files_by_columns(
+        [file_one, file_two],
+        preferred_base_key_columns=("사번",),
+    )
+
+    assert result.result_frame.loc[0, "직급"] == "주무관"
+    assert result.result_frame.loc[1, "직급"] == "팀장"
+    assert "사용자 선택 기준열" in {row["역할"] for row in result.mapping_records}
+
+
 def test_column_merge_reports_progress(tmp_path):
     file_one = tmp_path / "base.xlsx"
     file_two = tmp_path / "extra.xlsx"
