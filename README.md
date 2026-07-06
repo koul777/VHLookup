@@ -6,6 +6,7 @@
 
 - [VHLookup Local V1.2 Windows 실행파일 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_pivot_v1.2.exe)
 - 직접 다운로드가 안 되면 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 `VHLookupLocal_pivot_v1.2.exe`를 내려받습니다.
+- [VHlookup 사용설명서 PDF 바로 다운로드](https://raw.githubusercontent.com/koul777/VHLookup/main/docs/manuals/VHLookup_User_Guide.pdf)
 
 GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을 포함하지 않습니다. exe 파일은 GitHub Release 첨부파일로 배포합니다.
 
