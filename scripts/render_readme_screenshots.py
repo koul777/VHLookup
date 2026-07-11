@@ -130,17 +130,17 @@ FEATURE_SHOTS = [
         output_name="feature_06_pivot_summary.png",
     ),
     FeatureShot(
-        title="7. Custom order sort",
-        summary="Reorder rows by moving the selected column values into the desired order.",
+        title="7. 사용자 지정 순서 정렬",
+        summary="선택한 컬럼의 값을 원하는 순서로 움직여 전체 행 순서를 정리합니다.",
         before=TableSpec(
             SAMPLES / "07_organization_order" / "department_tasks.csv",
-            "Before",
-            "Source CSV",
+            "실행 전",
+            "원본 CSV",
         ),
         after=TableSpec(
             DEMO_OUTPUT / "07_사용자지정순서_정렬결과.xlsx",
-            "After",
-            "Sorted result",
+            "실행 후",
+            "정렬 결과",
             "결과",
         ),
         output_name="feature_07_custom_order_sort.png",
