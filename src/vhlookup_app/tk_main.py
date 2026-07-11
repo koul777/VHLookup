@@ -22,6 +22,7 @@ from vhlookup_core import (
     ConsolidationEngine,
     ExcelLoader,
     HeaderDetector,
+    OrganizationOrderSorter,
     PrivacyMaskingEngine,
     ReportWriter,
     SheetDetector,
@@ -227,6 +228,18 @@ def generate_demo_reports(output_dir: Path, samples_dir: Path) -> list[Path]:
         value_column="금액",
         aggregation="합계",
     )
+    order_source = load_table(samples_dir / "07_organization_order" / "department_tasks.csv")
+    order_result = OrganizationOrderSorter().sort_frame(
+        order_source,
+        "부서",
+        ["기획조정실", "총무과", "인사과", "예산과", "복지정책과", "민원봉사과", "홍보담당관", "감사담당관"],
+    )
+    writer.write_xlsx(
+        order_result,
+        output_dir / "07_사용자지정순서_정렬결과.xlsx",
+        mark_result_cells=False,
+        include_privacy_scan=False,
+    )
     return sorted(output_dir.glob("*.xlsx"))
 
 
@@ -321,7 +334,16 @@ class LocalApp:
             self.quick_pivot_summary,
         )
 
+        self._action_button(
+            actions,
+            "7. 사용자 지정 순서 정렬",
+            "파일을 올린 뒤 컬럼을 고르고, 그 컬럼 안의 값을 원하는 순서로 움직여 행 순서를 정리합니다.",
+            self.quick_organization_order,
+        )
+
         ttk.Label(top, text="실행 상태", style="Section.TLabel").pack(anchor="w", pady=(14, 6))
+
+
         log_frame = ttk.Frame(top, padding=10, style="Panel.TFrame")
         log_frame.pack(fill="both", expand=True)
         self.log = Text(
@@ -1828,6 +1850,224 @@ class LocalApp:
                 return [output]
 
             self._run_with_progress("피벗 요약표 만들기", job, open_path=output.parent)
+
+        ttk.Button(button_row, text="미리보기 새로고침", command=refresh_preview).pack(side="left")
+        ttk.Button(button_row, text="취소", command=cancel).pack(side="right")
+        ttk.Button(button_row, text="실행", command=execute).pack(side="right", padx=(0, 8))
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
+        refresh_preview()
+        self.root.wait_window(dialog)
+
+    def quick_organization_order(self) -> None:
+        dialog = Toplevel(self.root)
+        dialog.title("사용자 지정 순서 정렬")
+        dialog.geometry("980x720")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        sorter = OrganizationOrderSorter()
+        tools = AdminWorkbookTools()
+        file_path = StringVar()
+        sort_column = StringVar()
+        status_text = StringVar(value="파일을 선택하면 컬럼 목록과 값 순서 목록이 표시됩니다.")
+        table_frame: pd.DataFrame | None = None
+        table_metadata: dict[str, object] = {}
+
+        frame = ttk.Frame(dialog, padding=14)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(
+            frame,
+            text="파일 안의 컬럼을 하나 고른 뒤, 그 컬럼에 들어 있는 값을 원하는 순서로 정렬합니다.",
+            font=("", 11, "bold"),
+        ).pack(anchor="w", pady=(0, 10))
+
+        file_row = ttk.Frame(frame)
+        file_row.pack(fill="x", pady=5)
+        ttk.Label(file_row, text="원본 파일", width=12).pack(side="left")
+        ttk.Entry(file_row, textvariable=file_path).pack(side="left", fill="x", expand=True)
+
+        option_box = ttk.LabelFrame(frame, text="정렬할 컬럼과 값 순서", padding=10)
+        option_box.pack(fill="x", pady=(10, 0))
+        option_box.columnconfigure(1, weight=1)
+        ttk.Label(option_box, text="컬럼").grid(row=0, column=0, sticky="w", padx=(0, 8), pady=4)
+        column_combo = ttk.Combobox(option_box, textvariable=sort_column, state="readonly")
+        column_combo.grid(row=0, column=1, sticky="ew", pady=4)
+        ttk.Label(
+            option_box,
+            text="컬럼을 고르면 해당 컬럼의 고유값이 아래 목록에 자동으로 뜹니다. 값을 선택하고 위/아래 버튼으로 순서를 바꾸세요.",
+            wraplength=820,
+        ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 0))
+
+        middle = ttk.Frame(frame)
+        middle.pack(fill="both", expand=True, pady=(10, 0))
+        middle.columnconfigure(0, weight=1)
+        middle.columnconfigure(2, weight=2)
+        middle.rowconfigure(0, weight=1)
+
+        order_box = ttk.LabelFrame(middle, text="값 순서", padding=8)
+        order_box.grid(row=0, column=0, sticky="nsew")
+        order_box.rowconfigure(0, weight=1)
+        order_box.columnconfigure(0, weight=1)
+        order_list = Listbox(order_box, height=16, exportselection=False)
+        order_list.grid(row=0, column=0, sticky="nsew")
+        order_scroll = ttk.Scrollbar(order_box, orient="vertical", command=order_list.yview)
+        order_scroll.grid(row=0, column=1, sticky="ns")
+        order_list.configure(yscrollcommand=order_scroll.set)
+
+        move_buttons = ttk.Frame(middle, padding=(8, 0))
+        move_buttons.grid(row=0, column=1, sticky="ns")
+
+        preview_box = ttk.LabelFrame(middle, text="미리보기", padding=8)
+        preview_box.grid(row=0, column=2, sticky="nsew")
+        preview_box.rowconfigure(0, weight=1)
+        preview_box.columnconfigure(0, weight=1)
+        preview_text = Text(preview_box, height=16, wrap="none")
+        preview_text.grid(row=0, column=0, sticky="nsew")
+        preview_scroll_y = ttk.Scrollbar(preview_box, orient="vertical", command=preview_text.yview)
+        preview_scroll_y.grid(row=0, column=1, sticky="ns")
+        preview_scroll_x = ttk.Scrollbar(preview_box, orient="horizontal", command=preview_text.xview)
+        preview_scroll_x.grid(row=1, column=0, sticky="ew")
+        preview_text.configure(
+            yscrollcommand=preview_scroll_y.set,
+            xscrollcommand=preview_scroll_x.set,
+            state="disabled",
+        )
+
+        ttk.Label(frame, textvariable=status_text, foreground="#374151").pack(anchor="w", pady=(10, 0))
+
+        def current_order_values() -> list[str]:
+            return [str(order_list.get(index)) for index in range(order_list.size())]
+
+        def set_order_values(values: list[str]) -> None:
+            order_list.delete(0, END)
+            for value in values:
+                order_list.insert(END, value)
+            if values:
+                order_list.selection_set(0)
+
+        def load_values_from_selected_column() -> None:
+            if table_frame is None or not sort_column.get():
+                return
+            values = sorter.unique_values(table_frame, sort_column.get())
+            set_order_values(values)
+            status_text.set(f"{sort_column.get()} 컬럼의 고유값 {len(values)}개를 불러왔습니다.")
+            refresh_preview()
+
+        def build_preview_frame() -> pd.DataFrame:
+            if table_frame is None:
+                return pd.DataFrame([{"안내": "파일 선택을 눌러 정렬할 엑셀/CSV 파일을 선택하세요."}])
+            if not sort_column.get():
+                return pd.DataFrame([{"안내": "정렬할 컬럼을 선택하세요."}])
+            order_values = current_order_values()
+            if not order_values:
+                return pd.DataFrame([{"안내": "선택한 컬럼의 값이 없습니다."}])
+            result = sorter.sort_frame(table_frame, sort_column.get(), order_values, metadata=table_metadata)
+            return result.result_frame.head(10)
+
+        def refresh_preview() -> None:
+            try:
+                self._write_preview_text(preview_text, build_preview_frame(), limit=10)
+            except Exception as exc:
+                self._write_preview_text(preview_text, pd.DataFrame([{"미리보기 오류": str(exc)}]), limit=10)
+
+        def move_selected(offset: int) -> None:
+            selected = order_list.curselection()
+            if not selected:
+                return
+            index = int(selected[0])
+            new_index = max(0, min(order_list.size() - 1, index + offset))
+            if new_index == index:
+                return
+            value = order_list.get(index)
+            order_list.delete(index)
+            order_list.insert(new_index, value)
+            order_list.selection_clear(0, END)
+            order_list.selection_set(new_index)
+            order_list.see(new_index)
+            refresh_preview()
+
+        def move_to_edge(first: bool) -> None:
+            selected = order_list.curselection()
+            if not selected:
+                return
+            index = int(selected[0])
+            new_index = 0 if first else order_list.size() - 1
+            if new_index == index:
+                return
+            value = order_list.get(index)
+            order_list.delete(index)
+            order_list.insert(new_index, value)
+            order_list.selection_clear(0, END)
+            order_list.selection_set(new_index)
+            order_list.see(new_index)
+            refresh_preview()
+
+        ttk.Button(move_buttons, text="맨 위", command=lambda: move_to_edge(True), width=8).pack(pady=(0, 6))
+        ttk.Button(move_buttons, text="위로", command=lambda: move_selected(-1), width=8).pack(pady=(0, 6))
+        ttk.Button(move_buttons, text="아래로", command=lambda: move_selected(1), width=8).pack(pady=(0, 6))
+        ttk.Button(move_buttons, text="맨 아래", command=lambda: move_to_edge(False), width=8).pack(pady=(0, 6))
+
+        def choose_file() -> None:
+            nonlocal table_frame, table_metadata
+            selected = filedialog.askopenfilename(
+                parent=dialog,
+                title="사용자 지정 순서로 정렬할 엑셀/CSV 파일을 선택하세요",
+                initialdir=self.base_dir,
+                filetypes=[("Excel/CSV", "*.xlsx *.xlsm *.csv"), ("All files", "*.*")],
+            )
+            if not selected:
+                return
+            try:
+                table_frame, table_metadata = tools.load_table(selected)
+                columns = [str(column) for column in table_frame.columns]
+                column_combo.configure(values=columns)
+                sort_column.set(sorter.infer_order_column(table_frame) if columns else "")
+                file_path.set(selected)
+                load_values_from_selected_column()
+            except Exception as exc:
+                messagebox.showerror(APP_TITLE, f"파일을 읽을 수 없습니다.\n{exc}")
+
+        def column_changed(_event=None) -> None:
+            load_values_from_selected_column()
+
+        column_combo.bind("<<ComboboxSelected>>", column_changed)
+        ttk.Button(file_row, text="파일 선택", command=choose_file).pack(side="left", padx=(8, 0))
+
+        button_row = ttk.Frame(frame)
+        button_row.pack(fill="x", pady=(18, 0))
+
+        def cancel() -> None:
+            dialog.destroy()
+
+        def execute() -> None:
+            if not file_path.get():
+                messagebox.showwarning(APP_TITLE, "먼저 정렬할 파일을 선택하세요.")
+                return
+            if not sort_column.get():
+                messagebox.showwarning(APP_TITLE, "정렬할 컬럼을 선택하세요.")
+                return
+            order_values = current_order_values()
+            if not order_values:
+                messagebox.showwarning(APP_TITLE, "선택한 컬럼에서 정렬할 값을 찾지 못했습니다.")
+                return
+            selected_file = Path(file_path.get())
+            selected_column = sort_column.get()
+            output = self._ask_save_path_or_none("사용자 지정 순서 정렬 결과를 저장할 위치를 선택하세요", "사용자지정순서_정렬결과")
+            if not output:
+                return
+            dialog.destroy()
+
+            def job(progress):
+                progress(10, "원본 파일 읽는 중")
+                full_table, metadata = tools.load_table(selected_file)
+                progress(55, "사용자 지정 순서 적용 중")
+                result = sorter.sort_frame(full_table, selected_column, order_values, metadata=metadata)
+                progress(88, "결과 엑셀 저장 중")
+                ReportWriter().write_xlsx(result, output, mark_result_cells=False, include_privacy_scan=False)
+                progress(100, "완료")
+                return [output]
+
+            self._run_with_progress("사용자 지정 순서 정렬", job, open_path=output.parent)
 
         ttk.Button(button_row, text="미리보기 새로고침", command=refresh_preview).pack(side="left")
         ttk.Button(button_row, text="취소", command=cancel).pack(side="right")

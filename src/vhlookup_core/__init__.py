@@ -19,6 +19,7 @@ from vhlookup_core.models import (
     ValidationIssue,
     WorkbookSource,
 )
+from vhlookup_core.organization_order import OrganizationOrderSorter, parse_order_text
 from vhlookup_core.privacy import PrivacyScanner
 from vhlookup_core.privacy_masking import PrivacyMaskingEngine, PrivacyMaskingResult
 from vhlookup_core.reconciliation import ReconciliationEngine
@@ -61,6 +62,8 @@ __all__ = [
     "KeySpec",
     "KeyRecommender",
     "MergeEngine",
+    "OrganizationOrderSorter",
+    "parse_order_text",
     "ReconciliationEngine",
     "ReportWriter",
     "PrivacyScanner",

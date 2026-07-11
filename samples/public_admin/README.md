@@ -6,7 +6,7 @@ CSV 파일은 Windows Excel에서 더블클릭으로 열어도 한글이 깨지�
 
 ## 폴더 구조
 
-실행 화면의 1~6번 주요 기능 순서에 맞춰 샘플 폴더를 나눴습니다.
+실행 화면의 1~7번 주요 기능 순서에 맞춰 샘플 폴더를 나눴습니다.
 
 ```text
 samples/public_admin
@@ -26,6 +26,8 @@ samples/public_admin
 │  └─ large_monthly_budget_wide_10k.csv
 └─ 06_pivot_summary
    └─ budget_execution.csv
+└─ 07_organization_order
+   └─ department_tasks.csv
 ```
 
 ## 1. 개인정보 마스킹
@@ -131,3 +133,15 @@ samples/public_admin
 - 상태별 건수 요약
 - `피벗요약` 시트에 요약표 생성
 - 기준 설명과 확인할 점은 `확인사항` 시트에 표시
+
+## 7. 사용자 지정 순서 정렬
+`07_organization_order/department_tasks.csv`를 사용합니다.
+
+추천 선택:
+- 컬럼: `부서`
+- 값 순서 예시: `기획조정실`, `총무과`, `인사과`, `예산과`, `복지정책과`, `민원봉사과`, `홍보담당관`, `감사담당관`
+
+확인 포인트:
+- 파일을 올리면 컬럼 목록이 표시됩니다.
+- `부서`를 고르면 CSV 안의 부서명이 값 순서 목록에 자동으로 표시됩니다.
+- 값 목록을 위/아래로 움직인 순서대로 전체 행이 정렬됩니다.

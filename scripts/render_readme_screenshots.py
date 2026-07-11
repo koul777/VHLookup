@@ -129,6 +129,22 @@ FEATURE_SHOTS = [
         ),
         output_name="feature_06_pivot_summary.png",
     ),
+    FeatureShot(
+        title="7. Custom order sort",
+        summary="Reorder rows by moving the selected column values into the desired order.",
+        before=TableSpec(
+            SAMPLES / "07_organization_order" / "department_tasks.csv",
+            "Before",
+            "Source CSV",
+        ),
+        after=TableSpec(
+            DEMO_OUTPUT / "07_사용자지정순서_정렬결과.xlsx",
+            "After",
+            "Sorted result",
+            "결과",
+        ),
+        output_name="feature_07_custom_order_sort.png",
+    ),
 ]
 
 

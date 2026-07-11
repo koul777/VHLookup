@@ -14,6 +14,7 @@ from vhlookup_core import (
     AdminWorkbookTools,
     ExcelLoader,
     HeaderDetector,
+    OrganizationOrderSorter,
     PrivacyMaskingEngine,
     ReportWriter,
     SheetDetector,
@@ -206,6 +207,19 @@ def main() -> int:
         column_column="월",
         value_column="금액",
         aggregation="합계",
+    )
+
+    order_source = load_table(SAMPLES / "07_organization_order" / "department_tasks.csv")
+    order_result = OrganizationOrderSorter().sort_frame(
+        order_source,
+        "부서",
+        ["기획조정실", "총무과", "인사과", "예산과", "복지정책과", "민원봉사과", "홍보담당관", "감사담당관"],
+    )
+    writer.write_xlsx(
+        order_result,
+        OUTPUT / "07_사용자지정순서_정렬결과.xlsx",
+        mark_result_cells=False,
+        include_privacy_scan=False,
     )
 
     for path in sorted(OUTPUT.glob("*.xlsx")):

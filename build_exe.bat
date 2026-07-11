@@ -10,7 +10,7 @@ if errorlevel 1 (
 )
 
 set BUILD_PY=%CD%\.build_venv\Scripts\python.exe
-set APP_VERSION=v1.3
+set APP_VERSION=v1.4
 set EXE_NAME=VHLookupLocal_%APP_VERSION%
 if not exist "%BUILD_PY%" (
   echo Creating clean build environment...

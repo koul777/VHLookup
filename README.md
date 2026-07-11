@@ -1,6 +1,12 @@
-# VHLookup Local V1.3
+# VHLookup Local V1.4
 
 ## 업데이트 내역
+
+### V1.4 (2026-07-11)
+
+- 7번 기능으로 사용자 지정 순서 정렬을 추가했습니다. 파일을 올린 뒤 컬럼을 선택하면 해당 컬럼의 고유값을 가져오고, 사용자가 그 값을 위/아래로 움직인 순서대로 전체 행을 정렬합니다.
+- 부서 직제순뿐 아니라 상태, 등급, 구분처럼 원하는 업무 순서가 있는 컬럼에도 사용할 수 있습니다.
+- 7번 기능 샘플과 전/후 비교 이미지를 추가했습니다.
 
 ### V1.3 (2026-07-06)
 
@@ -15,9 +21,9 @@
 
 비개발자 사용자는 Python이나 개발 환경을 몰라도 됩니다. 아래 zip 파일을 내려받아 압축을 푼 뒤, 안의 실행파일을 더블클릭해서 사용합니다.
 
-- [VHLookup Local V1.3 Windows 실행파일(zip) 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_v1.3.zip)
-- 직접 다운로드가 안 되면 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 `VHLookupLocal_v1.3.zip`을 내려받습니다.
-- 압축을 풀면 나오는 `VHLookupLocal_v1.3.exe`를 더블클릭해서 실행합니다.
+- [VHLookup Local V1.4 Windows 실행파일(zip) 다운로드](https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_v1.4.zip)
+- 직접 다운로드가 안 되면 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)에서 `VHLookupLocal_v1.4.zip`을 내려받습니다.
+- 압축을 풀면 나오는 `VHLookupLocal_v1.4.exe`를 더블클릭해서 실행합니다.
 - [VHlookup 사용설명서 PDF 바로 다운로드](https://raw.githubusercontent.com/koul777/VHLookup/main/docs/manuals/VHLookup_User_Guide.pdf)
 
 GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을 포함하지 않습니다. 실행파일은 zip으로 압축해 GitHub Release 첨부파일로 배포합니다. exe를 바로 배포하지 않고 zip으로 배포하는 이유는 브라우저와 SmartScreen이 서명되지 않은 exe 직접 다운로드를 차단하는 경우가 많기 때문입니다.
@@ -27,23 +33,23 @@ GitHub 소스 저장소에는 빌드 산출물인 `dist` 폴더와 exe 파일을
 Windows 또는 Microsoft Edge에서 `일반적으로 다운로드되지 않음`, `다운로드할 수 없음`, SmartScreen 경고가 나올 수 있습니다. 현재 실행파일은 새로 빌드한 서명되지 않은 exe라서 Microsoft 평판 정보가 충분하지 않을 수 있습니다.
 
 - 공유하거나 안내할 때, Microsoft 피드백이나 오탐 신고를 할 때는 긴 `release-assets.githubusercontent.com/...` 주소를 사용하지 않습니다. 이 주소는 GitHub가 다운로드 순간에 발급하는 임시 주소라 시간이 지나면 만료됩니다.
-- 공식 다운로드 주소는 위의 `V1.3 Windows 실행파일(zip) 다운로드` 또는 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)입니다.
-- 내려받은 파일명이 `VHLookupLocal_v1.3.zip`인지 확인합니다.
+- 공식 다운로드 주소는 위의 `V1.4 Windows 실행파일(zip) 다운로드` 또는 [GitHub Releases](https://github.com/koul777/VHLookup/releases/latest)입니다.
+- 내려받은 파일명이 `VHLookupLocal_v1.4.zip`인지 확인합니다.
 - 파일을 실행하기 전에 PowerShell에서 SHA256을 확인할 수 있습니다.
 
 ```powershell
-Get-FileHash .\VHLookupLocal_v1.3.zip -Algorithm SHA256
-Get-FileHash .\VHLookupLocal_v1.3.exe -Algorithm SHA256
+Get-FileHash .\VHLookupLocal_v1.4.zip -Algorithm SHA256
+Get-FileHash .\VHLookupLocal_v1.4.exe -Algorithm SHA256
 ```
 
-현재 `v1.3` 빌드 기준 SHA256은 아래와 같습니다.
+현재 `v1.4` 빌드 기준 SHA256은 아래와 같습니다.
 
 ```text
-VHLookupLocal_v1.3.zip: 750C9702F8598E654265F4F7B513615511E9F8DAFA422BCEF593767C1D07D6BF
-VHLookupLocal_v1.3.exe: 1EC4228B431B8FE99CC13DA63817E6A41A7C840096245FC15CA970F4A8096587
+VHLookupLocal_v1.4.zip: v1.4 배포 빌드 후 갱신
+VHLookupLocal_v1.4.exe: v1.4 배포 빌드 후 갱신
 ```
 
-현재 `v1.3` 빌드 파일 크기는 zip `35,057,647 bytes`, 압축 해제 후 exe `37,811,390 bytes`입니다.
+v1.4 빌드 파일 크기는 배포 빌드 후 갱신합니다.
 
 압축을 푼 exe를 처음 실행할 때 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다. 장기적으로는 실행파일에 코드 서명 인증서를 적용해야 이런 경고가 줄어듭니다.
 
@@ -91,6 +97,11 @@ VHLookupLocal_v1.3.exe: 1EC4228B431B8FE99CC13DA63817E6A41A7C840096245FC15CA970F4
 
 ![피벗 요약표 전후 비교](docs/images/feature_06_pivot_summary.png)
 
+### 7. 사용자 지정 순서 정렬
+파일에서 고른 컬럼의 값을 사용자가 원하는 순서로 배치해 전체 행을 정렬합니다.
+
+![사용자 지정 순서 정렬 전후 비교](docs/images/feature_07_custom_order_sort.png)
+
 ## 최근 업데이트
 
 ### 2026-07-05
@@ -119,7 +130,7 @@ VHLookupLocal_v1.3.exe: 1EC4228B431B8FE99CC13DA63817E6A41A7C840096245FC15CA970F4
 소스에서 직접 실행 파일을 만들려면 `build_exe.bat`을 실행합니다. 빌드가 끝나면 아래 위치에 exe가 생성됩니다.
 
 ```text
-dist\VHLookupLocal_v1.3.exe
+dist\VHLookupLocal_v1.4.exe
 ```
 
 ## 핵심 원칙
@@ -228,7 +239,7 @@ dist\VHLookupLocal_v1.3.exe
 
 ## 사용 순서
 
-1. 내려받은 `VHLookupLocal_v1.3.zip`의 압축을 풀고 `VHLookupLocal_v1.3.exe`를 더블클릭합니다. 직접 빌드한 경우에는 `dist\VHLookupLocal_v1.3.exe`를 실행합니다.
+1. 내려받은 `VHLookupLocal_v1.4.zip`의 압축을 풀고 `VHLookupLocal_v1.4.exe`를 더블클릭합니다. 직접 빌드한 경우에는 `dist\VHLookupLocal_v1.4.exe`를 실행합니다.
 2. 실행할 작업 버튼을 선택합니다.
 3. 파일을 올립니다.
 4. 미리보기에서 예상 결과를 확인합니다.
@@ -240,7 +251,7 @@ dist\VHLookupLocal_v1.3.exe
 
 ## 샘플 데이터
 
-샘플은 프로그램 안에서 새로 만들지 않고 파일로 제공합니다. 폴더는 실행 화면의 1~6번 기능 순서에 맞춰 정리되어 있습니다.
+샘플은 프로그램 안에서 새로 만들지 않고 파일로 제공합니다. 폴더는 실행 화면의 1~7번 기능 순서에 맞춰 정리되어 있습니다.
 
 ```text
 samples\public_admin
@@ -268,6 +279,8 @@ samples\public_admin
 │  └─ large_monthly_budget_wide_10k.csv
 └─ 06_pivot_summary
    └─ budget_execution.csv
+└─ 07_organization_order
+   └─ department_tasks.csv
 ```
 
 ### 메뉴별 샘플
@@ -430,7 +443,7 @@ build_exe.bat
 빌드가 끝나면 아래 파일이 생성됩니다.
 
 ```text
-dist\VHLookupLocal_v1.3.exe
+dist\VHLookupLocal_v1.4.exe
 ```
 
 ## 테스트
@@ -464,7 +477,7 @@ python -m vhlookup_cli.main lookup --reference master.xlsx --target submitted.xl
 python -m vhlookup_cli.main horizontal --file monthly_wide.xlsx --out monthly_list.xlsx
 ```
 
-비개발자용 기본 사용은 CLI가 아니라 배포용 `VHLookupLocal_v1.3.exe` 실행입니다.
+비개발자용 기본 사용은 CLI가 아니라 배포용 `VHLookupLocal_v1.4.exe` 실행입니다.
 
 ## 관련 문서
 
