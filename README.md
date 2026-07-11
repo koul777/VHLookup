@@ -45,11 +45,11 @@ Get-FileHash .\VHLookupLocal_v1.4.exe -Algorithm SHA256
 현재 `v1.4` 빌드 기준 SHA256은 아래와 같습니다.
 
 ```text
-VHLookupLocal_v1.4.zip: v1.4 배포 빌드 후 갱신
-VHLookupLocal_v1.4.exe: v1.4 배포 빌드 후 갱신
+VHLookupLocal_v1.4.zip: DFE3D90484DBE2B3DB4B702C613B3400B0E5B56BEE39486D6B4BC81756D62C2C
+VHLookupLocal_v1.4.exe: 1246AAF2A301B4EB830F458F6855C6C2226464E6E5394A07E23D348A7B028D23
 ```
 
-v1.4 빌드 파일 크기는 배포 빌드 후 갱신합니다.
+v1.4 빌드 파일 크기는 zip `40,473,347 bytes`, 압축 해제 후 exe `43,210,765 bytes`입니다.
 
 압축을 푼 exe를 처음 실행할 때 Windows SmartScreen이 뜨면 `추가 정보`를 누른 뒤 실행할 수 있습니다. 기관 PC에서 계속 차단되면 보안 담당자에게 공식 Release 주소와 SHA256을 전달해 허용을 요청해야 합니다. 장기적으로는 실행파일에 코드 서명 인증서를 적용해야 이런 경고가 줄어듭니다.
 
