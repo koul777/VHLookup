@@ -23,6 +23,7 @@ FEATURE_IMAGES = [
     ROOT / "docs" / "images" / "feature_05_monthly_list.png",
     ROOT / "docs" / "images" / "feature_06_pivot_summary.png",
     ROOT / "docs" / "images" / "feature_07_custom_order_sort.png",
+    ROOT / "docs" / "images" / "feature_08_merge_sheets.png",
 ]
 
 PAGE_WIDTH, PAGE_HEIGHT = A4
@@ -36,6 +37,7 @@ DARK = colors.HexColor("#1F2933")
 MUTED = colors.HexColor("#5F6C7B")
 LIGHT_LINE = colors.HexColor("#D8DEE9")
 SOFT_BLUE = colors.HexColor("#EAF2FB")
+GUIDE_UPDATED = "2026-08-24"
 
 
 def register_fonts() -> tuple[str, str]:
@@ -155,7 +157,7 @@ class Manual:
         self.pdf.line(MARGIN_X, 34, PAGE_WIDTH - MARGIN_X, 34)
         self.pdf.setFillColor(MUTED)
         self.pdf.setFont(FONT, 8.5)
-        self.pdf.drawString(MARGIN_X, 22, "VHLookup Local V1.4 사용설명서 | 2026-07-11")
+        self.pdf.drawString(MARGIN_X, 22, f"VHLookup Local V1.4 사용설명서 | {GUIDE_UPDATED}")
         self.pdf.drawRightString(PAGE_WIDTH - MARGIN_X, 22, f"{self.page}")
 
     def ensure(self, height: float) -> None:
@@ -307,14 +309,14 @@ def build_manual() -> None:
     manual.pdf.drawString(MARGIN_X, manual.y, "공공기관 취합 엑셀 업무를 로컬 PC에서 처리하는 Windows 실행 프로그램")
     manual.y -= 26
     manual.callout(
-        "V1.4 핵심 변경",
+        "2026-08-24 핵심 변경",
         [
-            "7번 기능으로 사용자 지정 순서 정렬을 추가했습니다.",
-            "데이터 파일을 탑재한 뒤 기준 컬럼을 고르면, 해당 컬럼 안의 고유값을 자동으로 불러오고 사용자가 정한 순서대로 전체 행을 정렬합니다.",
+            "8번 여러 시트 합치기를 추가했습니다. 한 엑셀 파일에서 선택한 시트를 아래로 이어 붙이고 원본 시트명을 남깁니다.",
+            "6번 피벗 요약은 첫 시트만 읽지 않고, 사용자가 복수 선택한 모든 시트를 합쳐 집계합니다.",
         ],
     )
     manual.image(MAIN_SCREENSHOT, max_height=330, caption="프로그램 메인 화면 - VHLookup Local V1.4")
-    manual.paragraph("최종 갱신일: 2026-07-11")
+    manual.paragraph(f"최종 갱신일: {GUIDE_UPDATED}")
 
     manual.new_page("1. 다운로드 및 실행")
     manual.bullets(
@@ -351,16 +353,17 @@ def build_manual() -> None:
         ["2", "기관별 시트 분리", "하나의 취합표를 기관, 부서, 담당자 등 기준값별 시트로 나눌 때"],
         ["3", "다중 파일 병합", "여러 기관이 보낸 파일을 한 파일로 합칠 때"],
         ["4", "전후 데이터 검증", "이전 제출본과 수정 제출본의 변경 행을 확인할 때"],
-        ["5", "월별 목록 생성", "시작일과 종료일 사이의 월별 업무 목록을 만들 때"],
-        ["6", "피벗 요약", "기관, 월, 상태, 담당자 기준으로 건수와 금액을 빠르게 요약할 때"],
+        ["5", "월별 목록형 변환", "옆으로 펼쳐진 월별 컬럼을 열 기준과 값 컬럼을 가진 목록형 데이터로 바꿀 때"],
+        ["6", "피벗 요약", "선택한 여러 시트를 합쳐 기관, 월, 상태 기준으로 건수와 금액을 요약할 때"],
         ["7", "사용자 지정 순서 정렬", "직제순, 지역순, 우선순위처럼 사용자가 정한 순서대로 행을 정렬할 때"],
+        ["8", "여러 시트 합치기", "한 파일의 월별, 부서별 시트를 하나의 목록으로 이어 붙일 때"],
     ]
     manual.table(feature_rows, [36, 130, CONTENT_WIDTH - 166])
     manual.callout(
-        "7번 기능의 기준",
+        "6번과 8번의 시트 선택 기준",
         [
-            "별도의 기준 컬럼을 새로 만들 필요가 없습니다.",
-            "탑재한 엑셀 또는 CSV 안에 이미 있는 컬럼 중 하나를 선택하고, 그 컬럼에 들어 있는 값들의 순서만 지정합니다.",
+            "피벗은 파일을 선택하면 전체 시트를 기본 선택하며, 필요 없는 안내 시트 등은 선택 해제할 수 있습니다.",
+            "시트 합치기는 2개 이상을 선택하며, 시트마다 없는 컬럼은 삭제하지 않고 빈칸으로 남깁니다.",
         ],
     )
 
@@ -368,7 +371,7 @@ def build_manual() -> None:
     for title, description, image_path in [
         ("1. 개인정보 마스킹", "마스킹할 컬럼을 선택하고 이름, 전화번호, 주민번호 형태에 맞게 일부 값을 숨깁니다. 원본은 보존하고 결과 파일을 따로 저장합니다.", FEATURE_IMAGES[0]),
         ("2. 기관별 시트 분리", "기준 컬럼의 값별로 시트를 나눕니다. 기관명, 부서명, 담당자처럼 반복되는 값을 기준으로 취합 자료를 배포하기 좋습니다.", FEATURE_IMAGES[1]),
-        ("3. 다중 파일 병합", "동일한 양식의 여러 파일을 선택해 하나의 엑셀로 합칩니다. 파일명 출처 컬럼을 남겨 어느 파일에서 온 행인지 확인할 수 있습니다.", FEATURE_IMAGES[2]),
+        ("3. 다중 파일 병합", "동일한 양식의 여러 파일을 행 방향으로 합치거나, 공통 기준열을 찾아 다른 파일의 컬럼을 오른쪽에 붙입니다. 미리보기에서 합치기 방향과 컬럼 매칭을 확인할 수 있습니다.", FEATURE_IMAGES[2]),
     ]:
         manual.subsection(title)
         manual.paragraph(description)
@@ -377,8 +380,8 @@ def build_manual() -> None:
     manual.new_page("4. 4번부터 6번 기능")
     for title, description, image_path in [
         ("4. 전후 데이터 검증", "변경 전 파일과 변경 후 파일을 비교해 추가, 삭제, 수정된 행을 확인합니다. 제출본 검토나 정정 요청 확인에 사용합니다.", FEATURE_IMAGES[3]),
-        ("5. 월별 목록 생성", "시작월과 종료월을 기준으로 월별 행을 자동 생성합니다. 반복 보고, 월별 점검, 월별 취합 대상 목록을 만들 때 사용합니다.", FEATURE_IMAGES[4]),
-        ("6. 피벗 요약", "선택한 행/열/값 기준으로 요약표를 만듭니다. 별도 피벗 조작 없이 기관별 건수, 월별 금액, 상태별 합계 등을 확인할 수 있습니다.", FEATURE_IMAGES[5]),
+        ("5. 월별 목록형 변환", "1월, 2월처럼 옆으로 펼쳐진 값 컬럼을 열 기준과 값 컬럼을 가진 세로 목록으로 풉니다. 월별 가로표를 분석용 데이터로 바꿀 때 사용합니다.", FEATURE_IMAGES[4]),
+        ("6. 피벗 요약", "처리할 시트를 복수 선택한 뒤 행, 열, 값, 집계 방식을 고릅니다. 선택한 모든 시트를 합쳐 기관별 건수, 월별 금액, 상태별 합계 등을 만듭니다.", FEATURE_IMAGES[5]),
     ]:
         manual.subsection(title)
         manual.paragraph(description)
@@ -408,29 +411,55 @@ def build_manual() -> None:
     )
     manual.image(FEATURE_IMAGES[6], max_height=250, caption="7번 사용자 지정 순서 정렬 전후 비교")
 
-    manual.new_page("6. 메뉴별 샘플")
+    manual.new_page("6. 8번 여러 시트 합치기")
+    manual.paragraph(
+        "여러 시트 합치기는 한 엑셀 파일 안의 월별, 부서별, 기관별 시트를 컬럼명 기준으로 아래로 이어 붙이는 기능입니다. 같은 컬럼은 하나로 맞추고, 어느 시트에만 있는 컬럼은 삭제하지 않고 빈칸과 함께 보존합니다."
+    )
+    manual.bullets(
+        [
+            "8. 여러 시트 합치기를 누르고 시트가 2개 이상 들어 있는 엑셀 파일을 선택합니다.",
+            "시트 목록에서 합칠 시트를 2개 이상 선택합니다. 처음에는 전체 시트가 선택됩니다.",
+            "선택한 시트 합치기를 누르고 결과 파일의 저장 위치를 지정합니다.",
+            "합친결과 시트에서 세로로 이어진 데이터를 확인합니다.",
+            "원본 시트명 컬럼에서 각 행의 출처를 확인합니다.",
+            "빈 시트는 결과 데이터에서 제외되며 확인사항 시트에 기록됩니다.",
+        ]
+    )
+    manual.image(FEATURE_IMAGES[7], max_height=185, caption="8번 여러 시트 합치기 전후 비교")
+    manual.callout(
+        "6번 피벗에서 여러 시트를 집계하는 방법",
+        [
+            "파일을 선택하면 처리할 시트 목록이 나타나고 전체 시트가 기본 선택됩니다.",
+            "필요한 시트만 남긴 뒤 선택 시트 불러오기를 눌러 컬럼 목록과 미리보기를 갱신합니다.",
+            "행 기준, 열 기준, 값 열, 집계 방식을 선택해 실행하면 선택한 시트 전체가 한 번에 집계됩니다.",
+        ],
+    )
+
+    manual.new_page("7. 메뉴별 샘플")
     sample_rows = [
         ["메뉴", "샘플 경로", "확인 포인트"],
-        ["1", "samples/public_admin/01_privacy_masking/citizen_contacts.csv", "개인정보가 안전하게 가려지는지 확인"],
-        ["2", "samples/public_admin/02_split_sheets/service_requests.csv", "기관별 시트가 생성되는지 확인"],
+        ["1", "samples/public_admin/01_privacy_masking/citizen_service_requests.csv", "개인정보가 안전하게 가려지는지 확인"],
+        ["2", "samples/public_admin/02_split_sheets/budget_execution.csv", "부서별 시트가 생성되는지 확인"],
         ["3", "samples/public_admin/03_merge_files/*.csv", "여러 기관 파일이 하나로 병합되는지 확인"],
         ["4", "samples/public_admin/04_before_after_validation", "전후 변경 행이 분류되는지 확인"],
-        ["5", "samples/public_admin/05_monthly_list/program_schedule.csv", "월별 반복 목록이 생성되는지 확인"],
-        ["6", "samples/public_admin/06_pivot_summary/budget_execution.csv", "피벗 요약표가 생성되는지 확인"],
+        ["5", "samples/public_admin/05_horizontal_table/monthly_budget_wide.csv", "월별 컬럼이 목록형으로 풀리는지 확인"],
+        ["6", "samples/public_admin/08_sheet_merge/monthly_budget_sheets.xlsx", "여러 시트가 피벗에 함께 집계되는지 확인"],
         ["7", "samples/public_admin/07_organization_order/department_tasks.csv", "선택 컬럼의 고유값을 지정한 순서대로 정렬하는지 확인"],
+        ["8", "samples/public_admin/08_sheet_merge/monthly_budget_sheets.xlsx", "합친결과의 원본 시트명과 전체 행 수 확인"],
     ]
     manual.table(sample_rows, [42, 245, CONTENT_WIDTH - 287])
     manual.paragraph(
         "샘플 파일은 프로그램 기능 확인용입니다. 실제 업무 파일을 사용할 때도 동일하게 파일을 탑재하고 화면에서 컬럼을 선택해 실행하면 됩니다."
     )
 
-    manual.new_page("7. 결과 파일 및 문제 해결")
+    manual.new_page("8. 결과 파일 및 문제 해결")
     manual.subsection("결과 파일")
     manual.bullets(
         [
             "기본 결과는 엑셀 파일로 저장됩니다.",
             "입력 파일의 원본 행과 컬럼은 가능한 보존하고, 기능에 필요한 보조 시트나 검증 컬럼만 추가합니다.",
             "7번 기능 결과 파일에는 정렬된 데이터와 사용자가 지정한 값 순서가 남아 재검토가 가능합니다.",
+            "8번 기능 결과의 합친결과 시트에는 원본 시트명 컬럼이 있어 각 행의 출처를 확인할 수 있습니다.",
         ]
     )
     manual.subsection("자주 막히는 상황")
@@ -440,6 +469,8 @@ def build_manual() -> None:
             "CSV의 한글이 깨지면 UTF-8 또는 CP949 인코딩으로 저장한 뒤 다시 불러옵니다.",
             "7번에서 원하는 컬럼이 보이지 않으면 첫 행이 헤더인지 확인합니다.",
             "정렬 후 일부 값이 뒤로 밀리면 값 순서 목록에 포함되지 않은 값이 있는지 확인합니다.",
+            "피벗 시트 선택을 바꾼 뒤에는 선택 시트 불러오기를 눌러 미리보기와 컬럼 목록을 갱신합니다.",
+            "8번에서 빈 시트가 빠졌다면 확인사항 시트에서 제외 이유를 확인합니다.",
             "보안 경고가 뜨면 GitHub Release에서 내려받은 파일명과 SHA256 값을 먼저 확인합니다.",
         ]
     )
@@ -449,6 +480,8 @@ def build_manual() -> None:
             "다운로드: https://github.com/koul777/VHLookup/releases/latest/download/VHLookupLocal_v1.4.zip",
             "릴리즈 목록: https://github.com/koul777/VHLookup/releases/latest",
             "사용설명서 PDF: docs/manuals/VHLookup_User_Guide.pdf",
+            "전체 활용 영상: docs/videos/VHLookup_menu_walkthrough.mp4",
+            "메뉴별 활용 영상 링크: README.md의 메뉴별 활용 영상 표",
         ],
     )
 

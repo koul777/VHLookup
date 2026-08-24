@@ -1,6 +1,6 @@
 # 샘플 데이터 카탈로그
 
-`samples/public_admin` 아래 샘플은 실행 화면의 1~7번 기능 순서로 나뉘어 있습니다.
+`samples/public_admin` 아래 샘플은 실행 화면의 1~8번 기능 순서로 나뉘어 있습니다.
 
 기본 폴더:
 
@@ -11,6 +11,7 @@
 - `05_horizontal_table`: 5번 월별표 목록형 변환
 - `06_pivot_summary`: 6번 피벗 요약표 만들기
 - `07_organization_order`: 7번 사용자 지정 순서 정렬
+- `08_sheet_merge`: 8번 여러 시트 합치기와 6번 다중 시트 피벗
 
 전체 데모 실행:
 
@@ -138,6 +139,7 @@ python scripts\run_public_admin_demo.py
 입력:
 
 - `samples/public_admin/06_pivot_summary/budget_execution.csv`
+- `samples/public_admin/08_sheet_merge/monthly_budget_sheets.xlsx` (다중 시트 집계)
 
 결과:
 
@@ -155,6 +157,7 @@ python scripts\run_public_admin_demo.py
 - 부서별/월별 예산 집행 합계를 `피벗요약` 시트로 만듭니다.
 - `건수` 집계를 선택하면 값 열 없이 행 개수를 요약할 수 있습니다.
 - 기준 설명과 상위 항목은 `확인사항` 시트에서 확인합니다.
+- 다중 시트 샘플에서는 `1월`, `2월` 시트가 함께 집계되고 빈 시트는 자동 제외됩니다.
 
 ## 07. 사용자 지정 순서 정렬
 입력:
@@ -171,3 +174,20 @@ python scripts\run_public_admin_demo.py
 - 파일에서 컬럼을 고르면 해당 컬럼의 고유값이 목록에 자동으로 표시됩니다.
 - 목록의 값을 위/아래로 옮긴 순서대로 전체 행이 정렬됩니다.
 - 부서뿐 아니라 상태, 구분, 등급 같은 다른 컬럼에도 같은 방식으로 사용할 수 있습니다.
+
+## 08. 여러 시트 합치기
+
+입력:
+
+- `samples/public_admin/08_sheet_merge/monthly_budget_sheets.xlsx`
+
+결과:
+
+- `demo_output/08_시트합치기_결과.xlsx`
+
+확인 포인트:
+
+- `1월`, `2월` 시트가 `합친결과` 시트에 세로로 이어집니다.
+- `원본 시트명` 컬럼에서 각 행의 출처를 확인할 수 있습니다.
+- `2월` 시트에만 있는 `메모` 컬럼도 삭제하지 않고 보존합니다.
+- 데이터가 없는 `빈시트`는 제외하고 `확인사항`에 기록합니다.

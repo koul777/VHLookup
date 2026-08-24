@@ -1,7 +1,7 @@
 """Core engines for VLOOKUP/HLOOKUP Killer Local."""
 
 from vhlookup_core.auto import AutoLookupPlan, AutoLookupPlanner
-from vhlookup_core.admin_tools import AdminWorkbookTools, PivotSummaryResult, PivotWorkbookResult, SplitWorkbookResult
+from vhlookup_core.admin_tools import AdminWorkbookTools, PivotSummaryResult, PivotWorkbookResult, SheetMergeResult, SplitWorkbookResult
 from vhlookup_core.consolidation import ConsolidationEngine
 from vhlookup_core.header import HeaderDetector
 from vhlookup_core.horizontal import HorizontalTableEngine
@@ -70,6 +70,7 @@ __all__ = [
     "PrivacyMaskingEngine",
     "PrivacyMaskingResult",
     "SheetDetector",
+    "SheetMergeResult",
     "SplitWorkbookResult",
     "ValidationIssue",
     "ValidationEngine",

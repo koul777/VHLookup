@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from numbers import Real
 from pathlib import Path
@@ -158,6 +158,15 @@ class SplitWorkbookResult:
 
 
 @dataclass(frozen=True)
+class SheetMergeResult:
+    output_path: Path
+    sheet_names: tuple[str, ...]
+    skipped_sheet_names: tuple[str, ...]
+    source_sheet_column: str
+    row_count: int
+
+
+@dataclass(frozen=True)
 class PivotSummaryResult:
     source_frame: pd.DataFrame
     pivot_frame: pd.DataFrame
@@ -203,6 +212,136 @@ class AdminWorkbookTools:
             "warnings": detection.warnings,
         }
         return table, metadata
+
+    def list_sheet_names(self, path: str | Path) -> tuple[str, ...]:
+        """Return workbook sheet names in their original order."""
+        source = self.loader.load(path, max_rows=1)
+        return tuple(sheet.name for sheet in source.sheets)
+
+    def prepare_merged_sheets(
+        self,
+        path: str | Path,
+        sheet_names: Sequence[str] | None = None,
+        max_rows: int | None = None,
+        include_source_sheet: bool | None = True,
+    ) -> tuple[pd.DataFrame, dict[str, Any]]:
+        """Stack selected sheets vertically, aligning columns by normalized header."""
+        source = self.loader.load(path, max_rows=max_rows)
+        available_names = tuple(sheet.name for sheet in source.sheets)
+        requested_names = tuple(dict.fromkeys(str(name) for name in sheet_names)) if sheet_names is not None else available_names
+        missing_names = [name for name in requested_names if name not in available_names]
+        if missing_names:
+            raise KeyError(f"시트를 찾지 못했습니다: {', '.join(missing_names)}")
+        if not requested_names:
+            raise ValueError("합칠 시트를 하나 이상 선택하세요.")
+
+        requested = set(requested_names)
+        prepared: list[tuple[str, pd.DataFrame, dict[str, Any]]] = []
+        skipped_names: list[str] = []
+        canonical_columns: dict[str, str] = {}
+        sheet_details: list[dict[str, Any]] = []
+
+        for sheet in source.sheets:
+            if sheet.name not in requested:
+                continue
+            detection = self.header_detector.detect(sheet)
+            table = self.header_detector.apply(sheet, detection)
+            cleaned = self._clean_frame(table).reset_index(drop=True)
+            cleaned.columns = self._unique_column_names(cleaned.columns)
+            if cleaned.empty or len(cleaned.columns) == 0:
+                skipped_names.append(sheet.name)
+                sheet_details.append(
+                    {
+                        "sheet_name": sheet.name,
+                        "row_count": 0,
+                        "column_count": 0,
+                        "header_row_number": detection.header_row_number,
+                        "header_confidence": detection.confidence,
+                        "warnings": tuple(detection.warnings) + ("데이터 행이 없어 제외했습니다.",),
+                        "included": False,
+                    }
+                )
+                continue
+
+            rename_map: dict[str, str] = {}
+            used_in_sheet: set[str] = set()
+            for column in cleaned.columns:
+                display_name = str(column)
+                normalized = normalize_header(display_name) or display_name.casefold()
+                canonical = canonical_columns.setdefault(normalized, display_name)
+                if canonical in used_in_sheet:
+                    canonical = display_name
+                rename_map[display_name] = canonical
+                used_in_sheet.add(canonical)
+            cleaned = cleaned.rename(columns=rename_map)
+            prepared.append((sheet.name, cleaned, {"detection": detection}))
+            sheet_details.append(
+                {
+                    "sheet_name": sheet.name,
+                    "row_count": len(cleaned),
+                    "column_count": len(cleaned.columns),
+                    "header_row_number": detection.header_row_number,
+                    "header_confidence": detection.confidence,
+                    "warnings": detection.warnings,
+                    "included": True,
+                }
+            )
+
+        if not prepared:
+            raise ValueError("선택한 시트에 합칠 데이터 행이 없습니다.")
+
+        source_sheet_column = self._source_sheet_column_name(frame for _, frame, _ in prepared)
+        should_add_source = include_source_sheet is True or (include_source_sheet is None and len(prepared) > 1)
+        frames: list[pd.DataFrame] = []
+        for sheet_name, frame, _details in prepared:
+            current = frame.copy()
+            if should_add_source:
+                current.insert(0, source_sheet_column, sheet_name)
+            frames.append(current)
+        merged = pd.concat(frames, ignore_index=True, sort=False)
+        merged = self._clean_frame(merged).reset_index(drop=True)
+
+        included_names = tuple(name for name, _frame, _details in prepared)
+        metadata = {
+            "file_name": Path(path).name,
+            "sheet_name": ", ".join(included_names),
+            "sheet_names": included_names,
+            "sheet_count": len(included_names),
+            "requested_sheet_names": requested_names,
+            "skipped_sheet_names": tuple(skipped_names),
+            "source_sheet_column": source_sheet_column if should_add_source else "",
+            "row_count": len(merged),
+            "sheet_details": tuple(sheet_details),
+        }
+        return merged, metadata
+
+    def write_merged_sheets_workbook(
+        self,
+        path: str | Path,
+        output_path: str | Path,
+        sheet_names: Sequence[str] | None = None,
+        progress_callback: ProgressCallback | None = None,
+    ) -> SheetMergeResult:
+        self._emit_progress(progress_callback, 10, "원본 시트 읽는 중")
+        merged, metadata = self.prepare_merged_sheets(path, sheet_names=sheet_names, include_source_sheet=True)
+        if len(merged) > 1_048_575:
+            raise ValueError("합친 데이터가 엑셀 한 시트의 최대 행 수(1,048,575개)를 초과합니다.")
+        self._emit_progress(progress_callback, 70, f"{metadata['sheet_count']}개 시트 합치는 중")
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            merged.to_excel(writer, sheet_name="합친결과", index=False)
+            self._sheet_merge_review_frame(metadata).to_excel(writer, sheet_name="확인사항", index=False)
+            self._emit_progress(progress_callback, 90, "결과 엑셀 서식 적용 중")
+            self._style_workbook(writer.book)
+        self._emit_progress(progress_callback, 100, "완료")
+        return SheetMergeResult(
+            output_path=output,
+            sheet_names=tuple(metadata["sheet_names"]),
+            skipped_sheet_names=tuple(metadata["skipped_sheet_names"]),
+            source_sheet_column=str(metadata["source_sheet_column"]),
+            row_count=len(merged),
+        )
 
     def clean_file(self, path: str | Path) -> JobResult:
         table, metadata = self.load_table(path)
@@ -325,11 +464,18 @@ class AdminWorkbookTools:
         self._emit_progress(progress_callback, 100, "완료")
         return SplitWorkbookResult(output, selected_column, len(groups), len(cleaned))
 
-    def prepare_pivot_source(self, path: str | Path, max_rows: int | None = None) -> tuple[pd.DataFrame, dict[str, Any]]:
-        table, metadata = self.load_table(path, max_rows=max_rows)
-        cleaned = self._clean_frame(table).reset_index(drop=True)
-        cleaned.columns = self._unique_column_names(cleaned.columns)
-        return cleaned, metadata
+    def prepare_pivot_source(
+        self,
+        path: str | Path,
+        max_rows: int | None = None,
+        sheet_names: Sequence[str] | None = None,
+    ) -> tuple[pd.DataFrame, dict[str, Any]]:
+        return self.prepare_merged_sheets(
+            path,
+            sheet_names=sheet_names,
+            max_rows=max_rows,
+            include_source_sheet=None,
+        )
 
     def infer_pivot_defaults(self, frame: pd.DataFrame) -> dict[str, str]:
         cleaned = frame.copy()
@@ -416,6 +562,8 @@ class AdminWorkbookTools:
         )
         summary = {
             "workflow": "피벗 요약표 만들기",
+            "source_sheet_count": int((metadata or {}).get("sheet_count", 1)),
+            "source_sheet_names": ", ".join((metadata or {}).get("sheet_names", ())) or (metadata or {}).get("sheet_name", ""),
             "row_column": row_column,
             "column_column": selected_column or "",
             "value_column": selected_value or COUNT_DISPLAY_COLUMN,
@@ -435,9 +583,10 @@ class AdminWorkbookTools:
         value_column: str | None = None,
         aggregation: str = "건수",
         progress_callback: ProgressCallback | None = None,
+        sheet_names: Sequence[str] | None = None,
     ) -> PivotWorkbookResult:
-        self._emit_progress(progress_callback, 10, "원본 파일 읽는 중")
-        source, metadata = self.prepare_pivot_source(path)
+        self._emit_progress(progress_callback, 10, "원본 시트 읽는 중")
+        source, metadata = self.prepare_pivot_source(path, sheet_names=sheet_names)
         self._emit_progress(progress_callback, 45, "피벗 집계 계산 중")
         result = self.build_pivot_summary(
             source,
@@ -528,6 +677,66 @@ class AdminWorkbookTools:
             if pd.api.types.is_object_dtype(cleaned[column]) or pd.api.types.is_string_dtype(cleaned[column]):
                 cleaned[column] = cleaned[column].map(lambda value: value.strip() if isinstance(value, str) else value)
         return cleaned
+
+    def _source_sheet_column_name(self, frames) -> str:
+        existing = {str(column) for frame in frames for column in frame.columns}
+        base = "원본 시트명"
+        if base not in existing:
+            return base
+        base = "처리 원본 시트명"
+        name = base
+        suffix = 2
+        while name in existing:
+            name = f"{base}_{suffix}"
+            suffix += 1
+        return name
+
+    def _sheet_merge_review_frame(self, metadata: dict[str, Any]) -> pd.DataFrame:
+        rows: list[dict[str, object]] = [
+            {
+                "구분": "처리 요약",
+                "시트명": "",
+                "행 수": metadata.get("row_count", 0),
+                "열 수": "",
+                "내용": f"{metadata.get('sheet_count', 0)}개 시트를 세로로 합쳤습니다.",
+            },
+            {
+                "구분": "원본 파일",
+                "시트명": "",
+                "행 수": "",
+                "열 수": "",
+                "내용": metadata.get("file_name", ""),
+            },
+            {
+                "구분": "추적 컬럼",
+                "시트명": "",
+                "행 수": "",
+                "열 수": "",
+                "내용": f"{metadata.get('source_sheet_column', '원본 시트명')} 열에서 각 행의 원본 시트를 확인할 수 있습니다.",
+            },
+        ]
+        for detail in metadata.get("sheet_details", ()):
+            warnings = detail.get("warnings", ())
+            content = "; ".join(str(warning) for warning in warnings) if warnings else "정상 처리"
+            rows.append(
+                {
+                    "구분": "시트별 처리" if detail.get("included") else "제외 시트",
+                    "시트명": detail.get("sheet_name", ""),
+                    "행 수": detail.get("row_count", 0),
+                    "열 수": detail.get("column_count", 0),
+                    "내용": content,
+                }
+            )
+        rows.append(
+            {
+                "구분": "주의",
+                "시트명": "",
+                "행 수": "",
+                "열 수": "",
+                "내용": "시트마다 없는 컬럼은 빈칸으로 남겼으며 원본 파일은 수정하지 않았습니다.",
+            }
+        )
+        return pd.DataFrame(rows, columns=["구분", "시트명", "행 수", "열 수", "내용"])
 
     def _unique_column_names(self, columns) -> list[str]:
         used: dict[str, int] = {}

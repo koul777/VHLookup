@@ -65,6 +65,93 @@ def test_admin_split_workbook_infers_department_column(tmp_path):
     assert len(sheets["IT"]) == 2
 
 
+def test_sheet_merge_stacks_selected_sheets_and_keeps_source_name(tmp_path):
+    source = tmp_path / "monthly.xlsx"
+    output = tmp_path / "merged.xlsx"
+    with pd.ExcelWriter(source, engine="openpyxl") as writer:
+        pd.DataFrame(
+            {
+                "부서": ["총무", "예산"],
+                "월": ["1월", "1월"],
+                "금액": [100, 200],
+            }
+        ).to_excel(writer, sheet_name="1월", index=False)
+        pd.DataFrame(
+            {
+                "부서": ["총무"],
+                "월": ["2월"],
+                "금액": [150],
+                "메모": ["추가 컬럼"],
+            }
+        ).to_excel(writer, sheet_name="2월", index=False)
+        pd.DataFrame().to_excel(writer, sheet_name="빈시트", index=False)
+
+    tools = AdminWorkbookTools()
+    merged, metadata = tools.prepare_merged_sheets(source)
+
+    assert list(tools.list_sheet_names(source)) == ["1월", "2월", "빈시트"]
+    assert len(merged) == 3
+    assert list(merged["원본 시트명"]) == ["1월", "1월", "2월"]
+    assert merged.loc[2, "메모"] == "추가 컬럼"
+    assert pd.isna(merged.loc[0, "메모"])
+    assert metadata["sheet_names"] == ("1월", "2월")
+    assert metadata["skipped_sheet_names"] == ("빈시트",)
+
+    result = tools.write_merged_sheets_workbook(source, output)
+    sheets = pd.read_excel(output, sheet_name=None)
+
+    assert result.sheet_names == ("1월", "2월")
+    assert result.skipped_sheet_names == ("빈시트",)
+    assert result.row_count == 3
+    assert list(sheets) == ["합친결과", "확인사항"]
+    assert "시트별 처리" in set(sheets["확인사항"]["구분"])
+
+
+def test_pivot_uses_all_selected_sheets_instead_of_only_first(tmp_path):
+    source = tmp_path / "monthly_budget.xlsx"
+    output = tmp_path / "pivot_all_sheets.xlsx"
+    with pd.ExcelWriter(source, engine="openpyxl") as writer:
+        pd.DataFrame({"부서": ["총무", "예산"], "월": ["1월", "1월"], "금액": [100, 200]}).to_excel(
+            writer, sheet_name="1월", index=False
+        )
+        pd.DataFrame({"부서": ["총무", "예산"], "월": ["2월", "2월"], "금액": [150, 50]}).to_excel(
+            writer, sheet_name="2월", index=False
+        )
+
+    tools = AdminWorkbookTools()
+    frame, metadata = tools.prepare_pivot_source(source)
+    summary = tools.build_pivot_summary(
+        frame,
+        row_column="부서",
+        column_column="월",
+        value_column="금액",
+        aggregation="합계",
+        metadata=metadata,
+    )
+    totals = summary.pivot_frame.set_index("부서")
+
+    assert len(frame) == 4
+    assert metadata["sheet_names"] == ("1월", "2월")
+    assert totals.loc["총무", "합계"] == 250
+    assert totals.loc["합계", "합계"] == 500
+
+    result = tools.write_pivot_workbook(
+        source,
+        output,
+        row_column="부서",
+        column_column="월",
+        value_column="금액",
+        aggregation="합계",
+    )
+    pivot = pd.read_excel(output, sheet_name="피벗요약").set_index("부서")
+    selected_frame, selected_metadata = tools.prepare_pivot_source(source, sheet_names=["2월"])
+
+    assert result.row_count == 4
+    assert pivot.loc["합계", "합계"] == 500
+    assert len(selected_frame) == 2
+    assert selected_metadata["sheet_names"] == ("2월",)
+
+
 def test_clean_file_report_can_be_written(tmp_path):
     source = tmp_path / "dirty.xlsx"
     output = tmp_path / "cleaned.xlsx"

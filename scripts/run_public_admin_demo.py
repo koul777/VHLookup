@@ -73,7 +73,21 @@ DEMO_TOUR_ROWS = [
         "결과 파일": "06_피벗요약표_결과.xlsx",
         "업무 상황": "피벗 요약표 만들기",
         "열어볼 시트": "피벗요약, 확인사항",
-        "확인 포인트": "부서별/월별 예산 집행 합계 요약",
+        "확인 포인트": "선택한 여러 시트의 부서별/월별 금액을 한 번에 요약",
+    },
+    {
+        "순서": "07",
+        "결과 파일": "07_사용자지정순서_정렬결과.xlsx",
+        "업무 상황": "사용자 지정 순서 정렬",
+        "열어볼 시트": "결과, 확인사항",
+        "확인 포인트": "사용자가 정한 부서 순서대로 전체 행 정렬",
+    },
+    {
+        "순서": "08",
+        "결과 파일": "08_시트합치기_결과.xlsx",
+        "업무 상황": "여러 시트 합치기",
+        "열어볼 시트": "합친결과, 확인사항",
+        "확인 포인트": "월별 시트를 세로로 합치고 원본 시트명 보존",
     },
 ]
 
@@ -201,7 +215,7 @@ def main() -> int:
     writer.write_xlsx(horizontal, OUTPUT / "05_월별표_목록형변환.xlsx")
 
     tools.write_pivot_workbook(
-        SAMPLES / "06_pivot_summary" / "budget_execution.csv",
+        SAMPLES / "08_sheet_merge" / "monthly_budget_sheets.xlsx",
         OUTPUT / "06_피벗요약표_결과.xlsx",
         row_column="부서",
         column_column="월",
@@ -220,6 +234,12 @@ def main() -> int:
         OUTPUT / "07_사용자지정순서_정렬결과.xlsx",
         mark_result_cells=False,
         include_privacy_scan=False,
+    )
+
+    tools.write_merged_sheets_workbook(
+        SAMPLES / "08_sheet_merge" / "monthly_budget_sheets.xlsx",
+        OUTPUT / "08_시트합치기_결과.xlsx",
+        sheet_names=["1월", "2월", "빈시트"],
     )
 
     for path in sorted(OUTPUT.glob("*.xlsx")):

@@ -251,7 +251,7 @@ class LocalApp:
     def __init__(self, root: Tk) -> None:
         self.root = root
         self.root.title(APP_TITLE)
-        self.root.geometry("1020x760")
+        self.root.geometry("1020x820")
         self.root.minsize(900, 680)
         self.root.configure(bg="#F4F7FA")
         self.base_dir = app_base_dir()
@@ -330,7 +330,7 @@ class LocalApp:
         self._action_button(
             actions,
             "6. 피벗 요약표 만들기",
-            "부서/기관/월별 건수, 합계, 평균 요약표를 드롭박스로 선택해 만듭니다.",
+            "선택한 여러 시트를 합친 뒤 부서/기관/월별 건수, 합계, 평균 요약표를 만듭니다.",
             self.quick_pivot_summary,
         )
 
@@ -339,6 +339,12 @@ class LocalApp:
             "7. 사용자 지정 순서 정렬",
             "파일을 올린 뒤 컬럼을 고르고, 그 컬럼 안의 값을 원하는 순서로 움직여 행 순서를 정리합니다.",
             self.quick_organization_order,
+        )
+        self._action_button(
+            actions,
+            "8. 여러 시트 합치기",
+            "한 엑셀 파일에서 선택한 여러 시트를 아래로 이어 붙이고, 각 행의 원본 시트명을 남깁니다.",
+            self.quick_merge_sheets,
         )
 
         ttk.Label(top, text="실행 상태", style="Section.TLabel").pack(anchor="w", pady=(14, 6))
@@ -557,6 +563,110 @@ class LocalApp:
             return [output]
 
         self._run_with_progress("분류별 시트 나누기", job, open_path=output.parent)
+
+    def quick_merge_sheets(self) -> None:
+        file_path = self._ask_file_or_none("시트를 합칠 엑셀 파일을 선택하세요")
+        if not file_path:
+            return
+
+        tools = AdminWorkbookTools()
+        try:
+            sheet_names = list(tools.list_sheet_names(file_path))
+        except Exception as exc:
+            messagebox.showerror(APP_TITLE, f"파일의 시트 목록을 읽을 수 없습니다.\n{exc}")
+            return
+        if len(sheet_names) < 2:
+            messagebox.showwarning(APP_TITLE, "시트 합치기는 시트가 2개 이상인 엑셀 파일에서 사용할 수 있습니다.")
+            return
+
+        selected_sheets = self._choose_sheets_dialog(
+            title="합칠 시트 선택",
+            message="아래로 이어 붙일 시트를 2개 이상 선택하세요. 서로 없는 컬럼은 빈칸으로 남습니다.",
+            sheet_names=sheet_names,
+            minimum=2,
+        )
+        if not selected_sheets:
+            return
+        output = self._ask_save_path_or_none("시트 합치기 결과를 저장할 위치를 선택하세요", "시트합치기_결과")
+        if not output:
+            return
+
+        def job(progress):
+            result = tools.write_merged_sheets_workbook(
+                file_path,
+                output,
+                sheet_names=selected_sheets,
+                progress_callback=progress,
+            )
+            progress(100, f"{len(result.sheet_names)}개 시트, {result.row_count}행 합치기 완료")
+            return [output]
+
+        self._run_with_progress("여러 시트 합치기", job, open_path=output.parent)
+
+    def _choose_sheets_dialog(
+        self,
+        title: str,
+        message: str,
+        sheet_names: list[str],
+        minimum: int = 1,
+    ) -> list[str] | None:
+        dialog = Toplevel(self.root)
+        dialog.title(title)
+        dialog.geometry("560x480")
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        result: dict[str, list[str] | None] = {"value": None}
+        status = StringVar()
+        frame = ttk.Frame(dialog, padding=14)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text=message, font=("", 11, "bold"), wraplength=510, justify="left").pack(
+            anchor="w", pady=(0, 10)
+        )
+
+        list_frame = ttk.Frame(frame)
+        list_frame.pack(fill="both", expand=True)
+        sheet_list = Listbox(list_frame, selectmode="extended", exportselection=False)
+        sheet_list.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=sheet_list.yview)
+        scrollbar.pack(side="right", fill="y")
+        sheet_list.configure(yscrollcommand=scrollbar.set)
+        for sheet_name in sheet_names:
+            sheet_list.insert(END, sheet_name)
+        if sheet_names:
+            sheet_list.selection_set(0, END)
+
+        def update_status(_event=None) -> None:
+            status.set(f"전체 {len(sheet_names)}개 중 {len(sheet_list.curselection())}개 선택")
+
+        def set_all(selected: bool) -> None:
+            sheet_list.selection_set(0, END) if selected else sheet_list.selection_clear(0, END)
+            update_status()
+
+        def confirm() -> None:
+            selected = [sheet_names[index] for index in sheet_list.curselection()]
+            if len(selected) < minimum:
+                messagebox.showwarning(APP_TITLE, f"시트를 {minimum}개 이상 선택하세요.", parent=dialog)
+                return
+            result["value"] = selected
+            dialog.destroy()
+
+        def cancel() -> None:
+            result["value"] = None
+            dialog.destroy()
+
+        sheet_list.bind("<<ListboxSelect>>", update_status)
+        ttk.Label(frame, textvariable=status, foreground="#526173").pack(anchor="w", pady=(8, 0))
+        button_row = ttk.Frame(frame)
+        button_row.pack(fill="x", pady=(12, 0))
+        ttk.Button(button_row, text="전체 선택", command=lambda: set_all(True)).pack(side="left")
+        ttk.Button(button_row, text="전체 해제", command=lambda: set_all(False)).pack(side="left", padx=(8, 0))
+        ttk.Button(button_row, text="취소", command=cancel).pack(side="right")
+        ttk.Button(button_row, text="선택한 시트 합치기", command=confirm).pack(side="right", padx=(0, 8))
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
+        update_status()
+        self.root.wait_window(dialog)
+        return result["value"]
 
     def _choose_column_dialog(
         self,
@@ -1670,7 +1780,7 @@ class LocalApp:
 
         dialog = Toplevel(self.root)
         dialog.title("피벗 요약표 만들기")
-        dialog.geometry("980x720")
+        dialog.geometry("980x820")
         dialog.transient(self.root)
         dialog.grab_set()
 
@@ -1680,8 +1790,11 @@ class LocalApp:
         column_column = StringVar(value=no_column_label)
         value_column = StringVar(value=row_count_label)
         aggregation = StringVar(value="건수")
+        sheet_status = StringVar(value="파일을 선택하면 처리할 시트 목록이 표시됩니다.")
         table_frame: pd.DataFrame | None = None
         table_metadata: dict[str, object] = {}
+        available_sheet_names: list[str] = []
+        loaded_sheet_names: tuple[str, ...] = ()
 
         frame = ttk.Frame(dialog, padding=14)
         frame.pack(fill="both", expand=True)
@@ -1695,6 +1808,24 @@ class LocalApp:
         file_row.pack(fill="x", pady=5)
         ttk.Label(file_row, text="원본 파일", width=12).pack(side="left")
         ttk.Entry(file_row, textvariable=file_path).pack(side="left", fill="x", expand=True)
+
+        sheet_box = ttk.LabelFrame(frame, text="처리할 시트 (복수 선택)", padding=8)
+        sheet_box.pack(fill="x", pady=(8, 0))
+        sheet_list_frame = ttk.Frame(sheet_box)
+        sheet_list_frame.pack(side="left", fill="both", expand=True)
+        sheet_list = Listbox(sheet_list_frame, height=4, selectmode="extended", exportselection=False)
+        sheet_list.pack(side="left", fill="both", expand=True)
+        sheet_scrollbar = ttk.Scrollbar(sheet_list_frame, orient="vertical", command=sheet_list.yview)
+        sheet_scrollbar.pack(side="right", fill="y")
+        sheet_list.configure(yscrollcommand=sheet_scrollbar.set)
+        sheet_buttons = ttk.Frame(sheet_box)
+        sheet_buttons.pack(side="left", padx=(10, 0), anchor="n")
+        ttk.Button(sheet_buttons, text="전체 선택", command=lambda: set_sheet_selection(True)).pack(fill="x")
+        ttk.Button(sheet_buttons, text="전체 해제", command=lambda: set_sheet_selection(False)).pack(fill="x", pady=(6, 0))
+        ttk.Button(sheet_buttons, text="선택 시트 불러오기", command=lambda: load_selected_sheets()).pack(fill="x", pady=(6, 0))
+        ttk.Label(sheet_box, textvariable=sheet_status, foreground="#526173", wraplength=260, justify="left").pack(
+            side="left", padx=(10, 0), anchor="n"
+        )
 
         option_box = ttk.LabelFrame(frame, text="요약 기준", padding=10)
         option_box.pack(fill="x", pady=(10, 0))
@@ -1755,6 +1886,51 @@ class LocalApp:
             column_combo.configure(values=[no_column_label, *columns])
             value_combo.configure(values=[row_count_label, *columns])
 
+        def selected_sheet_names() -> list[str]:
+            return [available_sheet_names[index] for index in sheet_list.curselection()]
+
+        def set_sheet_selection(selected: bool) -> None:
+            if selected:
+                sheet_list.selection_set(0, END)
+            else:
+                sheet_list.selection_clear(0, END)
+            sheet_status.set(f"{len(selected_sheet_names())}개 선택 — '선택 시트 불러오기'를 눌러 반영하세요.")
+
+        def load_selected_sheets(show_error: bool = True) -> bool:
+            nonlocal table_frame, table_metadata, loaded_sheet_names
+            selected_names = selected_sheet_names()
+            if not file_path.get():
+                if show_error:
+                    messagebox.showwarning(APP_TITLE, "먼저 요약할 파일을 선택하세요.", parent=dialog)
+                return False
+            if not selected_names:
+                if show_error:
+                    messagebox.showwarning(APP_TITLE, "처리할 시트를 하나 이상 선택하세요.", parent=dialog)
+                return False
+            try:
+                table_frame, table_metadata = tools.prepare_pivot_source(
+                    file_path.get(),
+                    max_rows=PREVIEW_LOAD_ROW_LIMIT,
+                    sheet_names=selected_names,
+                )
+                defaults = tools.infer_pivot_defaults(table_frame)
+            except Exception as exc:
+                if show_error:
+                    messagebox.showerror(APP_TITLE, f"선택한 시트를 읽을 수 없습니다.\n{exc}", parent=dialog)
+                return False
+            columns = [str(column) for column in table_frame.columns]
+            loaded_sheet_names = tuple(selected_names)
+            refresh_combos(columns)
+            row_column.set(defaults["row_column"] if defaults["row_column"] in columns else (columns[0] if columns else ""))
+            column_column.set(defaults["column_column"] if defaults["column_column"] in columns else no_column_label)
+            value_column.set(defaults["value_column"] if defaults["value_column"] in columns else row_count_label)
+            aggregation.set(defaults["aggregation"])
+            skipped = tuple(table_metadata.get("skipped_sheet_names", ()))
+            skipped_text = f" (빈 시트 {len(skipped)}개 제외)" if skipped else ""
+            sheet_status.set(f"{len(table_metadata.get('sheet_names', ()))}개 시트, 미리보기 {len(table_frame)}행 로드{skipped_text}")
+            refresh_preview()
+            return True
+
         def build_preview_frame() -> pd.DataFrame:
             if table_frame is None:
                 return pd.DataFrame([{"안내": "파일 선택을 눌러 요약할 엑셀/CSV 파일을 선택하세요."}])
@@ -1777,7 +1953,7 @@ class LocalApp:
                 self._write_preview_text(preview_text, pd.DataFrame([{"미리보기 오류": str(exc)}]), limit=10)
 
         def choose_file() -> None:
-            nonlocal table_frame, table_metadata
+            nonlocal available_sheet_names, loaded_sheet_names
             selected = filedialog.askopenfilename(
                 parent=dialog,
                 title="피벗 요약표를 만들 엑셀/CSV 파일을 선택하세요",
@@ -1787,19 +1963,18 @@ class LocalApp:
             if not selected:
                 return
             try:
-                table_frame, table_metadata = tools.prepare_pivot_source(selected, max_rows=PREVIEW_LOAD_ROW_LIMIT)
-                defaults = tools.infer_pivot_defaults(table_frame)
+                available_sheet_names = list(tools.list_sheet_names(selected))
             except Exception as exc:
                 messagebox.showerror(APP_TITLE, f"파일을 읽을 수 없습니다.\n{exc}")
                 return
-            columns = [str(column) for column in table_frame.columns]
             file_path.set(selected)
-            refresh_combos(columns)
-            row_column.set(defaults["row_column"] if defaults["row_column"] in columns else (columns[0] if columns else ""))
-            column_column.set(defaults["column_column"] if defaults["column_column"] in columns else no_column_label)
-            value_column.set(defaults["value_column"] if defaults["value_column"] in columns else row_count_label)
-            aggregation.set(defaults["aggregation"])
-            refresh_preview()
+            loaded_sheet_names = ()
+            sheet_list.delete(0, END)
+            for sheet_name in available_sheet_names:
+                sheet_list.insert(END, sheet_name)
+            if available_sheet_names:
+                sheet_list.selection_set(0, END)
+            load_selected_sheets()
 
         def aggregation_changed(_event=None) -> None:
             if aggregation.get() != "건수" and value_column.get() == row_count_label and table_frame is not None:
@@ -1809,6 +1984,12 @@ class LocalApp:
             refresh_preview()
 
         ttk.Button(file_row, text="파일 선택", command=choose_file).pack(side="left", padx=(8, 0))
+        sheet_list.bind(
+            "<<ListboxSelect>>",
+            lambda _event: sheet_status.set(
+                f"{len(selected_sheet_names())}개 선택 — '선택 시트 불러오기'를 눌러 반영하세요."
+            ),
+        )
         row_combo.bind("<<ComboboxSelected>>", lambda _event: refresh_preview())
         column_combo.bind("<<ComboboxSelected>>", lambda _event: refresh_preview())
         value_combo.bind("<<ComboboxSelected>>", lambda _event: refresh_preview())
@@ -1826,6 +2007,13 @@ class LocalApp:
                 return
             if not row_column.get():
                 messagebox.showwarning(APP_TITLE, "행 기준 열을 선택하세요.")
+                return
+            selected_sheets = selected_sheet_names()
+            if not selected_sheets:
+                messagebox.showwarning(APP_TITLE, "처리할 시트를 하나 이상 선택하세요.")
+                return
+            if tuple(selected_sheets) != loaded_sheet_names:
+                messagebox.showwarning(APP_TITLE, "시트 선택이 변경되었습니다. '선택 시트 불러오기'를 눌러 기준 열을 다시 확인하세요.")
                 return
             selected_file = Path(file_path.get())
             selected_row = row_column.get()
@@ -1846,6 +2034,7 @@ class LocalApp:
                     value_column=selected_value,
                     aggregation=selected_aggregation,
                     progress_callback=progress,
+                    sheet_names=selected_sheets,
                 )
                 return [output]
 

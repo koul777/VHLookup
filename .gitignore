@@ -2,6 +2,8 @@ __pycache__/
 .pytest_cache/
 .pytest_tmp/
 .pytest_tmp*/
+.tmp/
+tmp/
 .agents/
 .build_venv/
 .venv/
@@ -20,3 +22,4 @@ build/
 !tests/**/*.xlsx
 !samples/public_admin/03_merge_files/large_column_merge_10k/
 !samples/public_admin/03_merge_files/large_column_merge_10k/*.xlsx
+!samples/public_admin/08_sheet_merge/*.xlsx

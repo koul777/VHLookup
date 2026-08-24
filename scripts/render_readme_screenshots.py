@@ -115,11 +115,12 @@ FEATURE_SHOTS = [
     ),
     FeatureShot(
         title="6. 피벗 요약표 만들기",
-        summary="상세 집행 내역이 부서/월 기준 요약표로 집계됩니다.",
+        summary="선택한 여러 시트의 상세 내역이 부서/월 기준 요약표로 함께 집계됩니다.",
         before=TableSpec(
-            SAMPLES / "06_pivot_summary" / "budget_execution.csv",
+            SAMPLES / "08_sheet_merge" / "monthly_budget_sheets.xlsx",
             "실행 전",
-            "상세 집행 CSV",
+            "1월 시트 (2월 시트도 함께 선택)",
+            "1월",
         ),
         after=TableSpec(
             DEMO_OUTPUT / "06_피벗요약표_결과.xlsx",
@@ -144,6 +145,23 @@ FEATURE_SHOTS = [
             "결과",
         ),
         output_name="feature_07_custom_order_sort.png",
+    ),
+    FeatureShot(
+        title="8. 여러 시트 합치기",
+        summary="선택한 월별 시트를 아래로 이어 붙이고 각 행의 원본 시트명을 남깁니다.",
+        before=TableSpec(
+            SAMPLES / "08_sheet_merge" / "monthly_budget_sheets.xlsx",
+            "실행 전",
+            "1월 시트 (2월 시트도 함께 선택)",
+            "1월",
+        ),
+        after=TableSpec(
+            DEMO_OUTPUT / "08_시트합치기_결과.xlsx",
+            "실행 후",
+            "합친결과",
+            "합친결과",
+        ),
+        output_name="feature_08_merge_sheets.png",
     ),
 ]
 
