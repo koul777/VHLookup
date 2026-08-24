@@ -1,5 +1,9 @@
 # VHLookup Local V1.4
 
+[![VHLookup Local 브랜드 트레일러](docs/videos/previews/VHLookup_brand_trailer.gif)](docs/videos/VHLookup_brand_trailer.mp4)
+
+> 반복되는 엑셀 업무를 더 빠르고 안전하게. 위 트레일러를 누르면 1080p 고화질 영상으로 볼 수 있습니다.
+
 ## 업데이트 내역
 
 ### V1.4 최신 배포 (2026-08-24)
