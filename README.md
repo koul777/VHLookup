@@ -68,15 +68,37 @@ v1.4 빌드 파일 크기는 zip `40,473,347 bytes`, 압축 해제 후 exe `43,2
 
 README를 열면 아래 메뉴별 시연이 바로 재생됩니다. 각 화면을 누르면 고화질 MP4 원본을 볼 수 있으며, 순서대로 한 번에 보려면 [1~8번 메뉴 전체 활용 영상](docs/videos/VHLookup_menu_walkthrough.mp4)을 재생하세요.
 
-| 1. 개인정보 마스킹 | 2. 분류별 시트 나누기 |
-| --- | --- |
-| [![개인정보 마스킹 활용 영상](docs/videos/previews/01_privacy_masking.gif)](docs/videos/01_privacy_masking.mp4) | [![분류별 시트 나누기 활용 영상](docs/videos/previews/02_split_sheets.gif)](docs/videos/02_split_sheets.mp4) |
-| 3. 엑셀/CSV 파일 여러 개 합치기 | 4. 전/후 파일 검증 |
-| [![엑셀 CSV 파일 합치기 활용 영상](docs/videos/previews/03_merge_files.gif)](docs/videos/03_merge_files.mp4) | [![전후 파일 검증 활용 영상](docs/videos/previews/04_before_after_validation.gif)](docs/videos/04_before_after_validation.mp4) |
-| 5. 월별표 목록형 변환 | 6. 피벗 요약표 만들기 |
-| [![월별표 목록형 변환 활용 영상](docs/videos/previews/05_horizontal_table.gif)](docs/videos/05_horizontal_table.mp4) | [![피벗 요약표 활용 영상](docs/videos/previews/06_pivot_summary.gif)](docs/videos/06_pivot_summary.mp4) |
-| 7. 사용자 지정 순서 정렬 | 8. 여러 시트 합치기 |
-| [![사용자 지정 순서 정렬 활용 영상](docs/videos/previews/07_organization_order.gif)](docs/videos/07_organization_order.mp4) | [![여러 시트 합치기 활용 영상](docs/videos/previews/08_sheet_merge.gif)](docs/videos/08_sheet_merge.mp4) |
+### 1. 개인정보 마스킹
+
+[![개인정보 마스킹 활용 영상](docs/videos/previews/01_privacy_masking.gif)](docs/videos/01_privacy_masking.mp4)
+
+### 2. 분류별 시트 나누기
+
+[![분류별 시트 나누기 활용 영상](docs/videos/previews/02_split_sheets.gif)](docs/videos/02_split_sheets.mp4)
+
+### 3. 엑셀/CSV 파일 여러 개 합치기
+
+[![엑셀 CSV 파일 합치기 활용 영상](docs/videos/previews/03_merge_files.gif)](docs/videos/03_merge_files.mp4)
+
+### 4. 전/후 파일 검증
+
+[![전후 파일 검증 활용 영상](docs/videos/previews/04_before_after_validation.gif)](docs/videos/04_before_after_validation.mp4)
+
+### 5. 월별표 목록형 변환
+
+[![월별표 목록형 변환 활용 영상](docs/videos/previews/05_horizontal_table.gif)](docs/videos/05_horizontal_table.mp4)
+
+### 6. 피벗 요약표 만들기
+
+[![피벗 요약표 활용 영상](docs/videos/previews/06_pivot_summary.gif)](docs/videos/06_pivot_summary.mp4)
+
+### 7. 사용자 지정 순서 정렬
+
+[![사용자 지정 순서 정렬 활용 영상](docs/videos/previews/07_organization_order.gif)](docs/videos/07_organization_order.mp4)
+
+### 8. 여러 시트 합치기
+
+[![여러 시트 합치기 활용 영상](docs/videos/previews/08_sheet_merge.gif)](docs/videos/08_sheet_merge.mp4)
 
 ## 기능별 전/후 엑셀 캡처
 
